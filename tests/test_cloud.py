@@ -105,6 +105,26 @@ def test_recovery_state_and_unicode_survive_independent_requests(kind, payload, 
         assert operation(client, "/documents/test-document/export", source, {"edits": edits}).status_code == 422
 
 
+def test_mixed_script_font_choice_can_be_reused_by_another_request():
+    source = create_scanned_demo()
+    recovery = [{"kind": "region", "page": 0, "payload": {"bbox": [45, 285, 510, 345]}}]
+    with TestClient(app) as client:
+        opened = operation(client, "/documents", source, recovery=recovery).json()
+        span = opened["pages"][0]["spans"][0]
+        text = "Hello नमस्ते বাংলা"
+        edits = [{"span_id": span["id"], "text": text, "font": "auto", "fit": True}]
+        validation = operation(client, "/documents/test-document/validate", source, {"edits": edits}, recovery=recovery)
+        assert validation.status_code == 200, validation.text
+        font_id = validation.json()["changes"][0]["font_id"]
+        assert font_id.startswith("mix:")
+        compositions = json.loads(validation.headers["X-Reage-Font-Compositions"])
+        edits[0]["font"] = font_id
+        exported = operation(client, "/documents/test-document/export", source, {"edits": edits}, recovery=recovery, compositions=compositions)
+        assert exported.status_code == 200, exported.text[:200]
+        with fitz.open(stream=exported.content, filetype="pdf") as result:
+            assert text in result[0].get_text()
+
+
 def test_hosted_limits_invalid_requests_and_origins_are_actionable():
     with TestClient(app) as client:
         assert operation(client, "/documents", b"%PDF-" + b"x" * MAX_DOCUMENT).status_code == 413

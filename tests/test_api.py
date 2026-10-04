@@ -100,6 +100,11 @@ def test_source_archive_contains_build_inputs_and_excludes_documents(client):
         assert "reage/LICENSE" in names
         assert "reage/README.md" in names
         assert "reage/docs/GUIDE.md" in names
+        assert "reage/server/cloud.py" in names
+        assert "reage/api/index.py" in names
+        assert "reage/vercel.json" in names
+        assert "reage/.python-version" in names
+        assert "reage/src/cloud.ts" in names
         for private_note in ("plan.md", "BENCHMARK.md", "PERFORMANCE.md"):
             assert f"reage/{private_note}" not in names
         assert "reage/public/font-licenses.txt" in names

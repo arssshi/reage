@@ -1,3 +1,20 @@
+[project]
+name = "reage"
+version = "0.6.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pymupdf==1.28.2",
+    "fastapi==0.142.2",
+    "uvicorn[standard]==0.54.0",
+    "python-multipart==0.0.32",
+    "fonttools==4.66.1",
+    "pillow==12.3.0",
+    "pymupdf-fonts==1.0.5",
+]
+
+[tool.uv]
+package = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
