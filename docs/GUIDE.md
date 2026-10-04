@@ -301,8 +301,8 @@ its in-memory documents. Reopening an exported PDF starts a new editing session.
 
 ## Website and deployment
 
-The project website is [reage0.vercel.app](https://reage0.vercel.app). Its deployment
-is pending; use the local setup above for the working editor.
+The project website is [reage0.vercel.app](https://reage0.vercel.app). It hosts a
+preview of the interface; use the local setup above for the working editor.
 
 `run.py` serves the built interface and PDF API together on loopback. Vercel can
 host a static frontend, but the current editor also requires the local

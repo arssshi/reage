@@ -7,7 +7,7 @@
 <p align="center">Edit the words. Keep the character. Keep your documents on your machine.</p>
 
 <p align="center">
-  <a href="https://reage0.vercel.app">Website · deployment pending</a> ·
+  <a href="https://reage0.vercel.app">Website · UI preview</a> ·
   <a href="#run-locally">Get started</a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
   <a href="CAPABILITIES.md">Capabilities</a> ·
@@ -44,8 +44,8 @@ replacement is not secure redaction. See the [full capability matrix](CAPABILITI
   temporary—export before closing or restarting; inactive documents expire after two hours.
 
 **Free to use, study, modify, and share under [AGPL-3.0-or-later](LICENSE).**
-The published source stays available under that license, so you can keep running
-your own copy independently of a hosted service.
+You can keep running and modifying your own copy under that license,
+independently of a hosted service.
 
 ## Run locally
 
@@ -85,9 +85,9 @@ npm run build
 Open **http://127.0.0.1:8000** → try a sample or open a PDF → click text → edit → **Export PDF**.
 After setup, only the final Python command is needed to launch again.
 
-The intended website is **[reage0.vercel.app](https://reage0.vercel.app)**; its
-deployment is pending. The working editor currently uses the local setup above
-and requires the Python service. [Setup, troubleshooting, and deployment details →](docs/GUIDE.md)
+The **[website](https://reage0.vercel.app)** currently hosts a preview of the interface.
+PDF editing requires the local Python service; use the setup above for the full
+editor. [Setup, troubleshooting, and deployment details →](docs/GUIDE.md)
 
 ## Built in the open
 
