@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ArrowRight, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Crop, Download, FilePlus2, FileText, Fingerprint, Focus, History, LoaderCircle, LockKeyhole, Maximize, Minimize2, Minus, MousePointer2, PanelLeftClose, PanelLeftOpen, Plus, Redo2, ScanText, Search, TextCursorInput, Type, Undo2, X } from 'lucide-react'
 import { api, APP_VERSION, messageOf } from './api'
+import { GITHUB_URL, IS_HOSTED } from './config'
 import type { Box, FontEntry, PdfDocument, TextSpan, WorkspaceTool } from './types'
 import { originalEdit, useTextSession } from './useTextSession'
 import PdfPreview from './components/PdfPreview'
@@ -289,7 +290,7 @@ export default function Editor({ document: initialPdf, initialTool = 'edit', onO
 
       <Inspector document={pdf} selected={selected} draft={draft} change={snapshot.changes.find(change => change.span_id === selected?.id)} dirty={dirty} applying={applying} error={error} editCount={snapshot.edits.length} onDraft={draft => { setDraft(draft); setError('') }} onApply={applyDraft} onRestore={restore} onClose={() => chooseSpan(null)} onFonts={() => setFontStudio(true)} onOCR={openOCR} onFocusSelection={focusSelection} fonts={libraryFonts} expanded={inspectorExpanded} onToggle={() => void toggleProperties()} onFidelity={() => setFidelityOpen(true)} />
     </div>
-    <footer className="status-bar"><div><span className="status-dot" /><span>On your device</span><LockKeyhole size={12} /></div><div><span>{snapshot.edits.length} {snapshot.edits.length === 1 ? 'text edit' : 'text edits'}</span><span className="status-separator">·</span><span>{Math.round(scale * 100)}%</span><span className="status-separator">·</span><span>reage v{APP_VERSION}</span></div></footer>
+    <footer className="status-bar"><div><span className="status-dot" /><span>{IS_HOSTED ? 'Temporary server processing' : 'On your device'}</span><LockKeyhole size={12} /><a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub ↗</a></div><div><span>{snapshot.edits.length} {snapshot.edits.length === 1 ? 'text edit' : 'text edits'}</span><span className="status-separator">·</span><span>{Math.round(scale * 100)}%</span><span className="status-separator">·</span><span>reage v{APP_VERSION}</span></div></footer>
     {notice && <div className={`toast ${notice.startsWith('Export failed') ? 'toast-error' : ''}`} role="status">{notice.startsWith('Export failed') ? <AlertCircle size={17} /> : <Check size={17} />}<span>{notice}</span><button className="icon-button tiny" onClick={() => setNotice('')} aria-label="Dismiss notification"><X size={14} /></button></div>}
     {help && <HelpDialog onClose={() => setHelp(false)} />}
     {commandsOpen && <CommandPalette commands={commands} onClose={() => setCommandsOpen(false)} />}

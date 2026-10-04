@@ -242,9 +242,9 @@ def download_source():
         "package.json", "package-lock.json", "tsconfig.json", "vite.config.ts",
         "playwright.config.ts", "index.html", "requirements.txt", "requirements-dev.txt",
         "pyproject.toml", "run.py", "README.md", "IMPLEMENTATION.md", "CAPABILITIES.md",
-        "LICENSE", "NOTICE.md", "CONTRIBUTING.md", ".gitignore", "public/font-licenses.txt",
+        "LICENSE", "NOTICE.md", "CONTRIBUTING.md", ".gitignore", ".python-version", "vercel.json", "public/font-licenses.txt",
     )]
-    for folder in ("src", "server", "public", "tests", "e2e", "scripts", "docs"):
+    for folder in ("src", "server", "public", "tests", "e2e", "scripts", "docs", "api"):
         extensions = (".py", ".ts", ".tsx", ".css", ".svg", ".mjs")
         if folder == "public":
             extensions += (".png", ".json", ".md", ".txt", ".woff2")

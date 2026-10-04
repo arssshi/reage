@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ArrowDownToLine, ArrowRight, ArrowUpRight, Check, ChevronRight, CircleHelp, Code2, FileText, Fingerprint, LayoutGrid, LockKeyhole, ScanText, Search, ShieldCheck, TextCursorInput, Type, Upload, WandSparkles } from 'lucide-react'
+import { ArrowDownToLine, ArrowRight, ArrowUpRight, Check, ChevronRight, CircleHelp, Github, FileText, Fingerprint, LayoutGrid, LockKeyhole, ScanText, Search, ShieldCheck, TextCursorInput, Type, Upload, WandSparkles } from 'lucide-react'
 import BrandLogo from './BrandLogo'
 import { APP_VERSION } from '../api'
 import type { WorkspaceTool } from '../types'
+import { GITHUB_URL, IS_HOSTED, MAX_UPLOAD_MB, PRIVACY_COPY } from '../config'
 
 interface Props {
   busy: boolean
@@ -24,11 +25,11 @@ export default function Welcome({ busy, onOpen, onDemo, onHelp, onStartTool }: P
         <a href="#tools" className={section === 'tools' ? 'active' : ''} onClick={() => setSection('tools')}><WandSparkles size={19} /><span>Explore tools</span><ChevronRight size={15} /></a>
       </nav>
       <div className="sidebar-guide"><span className="guide-symbol"><TextCursorInput size={23} /></span><h3>Small edits.<br />Same character.</h3><p>Keep the details that make your document yours.</p><button onClick={onHelp}>A quick introduction <ArrowUpRight size={14} /></button></div>
-      <div className="sidebar-bottom-links"><button onClick={onHelp}><CircleHelp size={18} /> Help & shortcuts</button><a href="/api/source" download><Code2 size={18} /> Open-source code <ArrowUpRight size={13} /></a><div className="local-label"><span /> Local workspace <span>v{APP_VERSION}</span></div></div>
+      <div className="sidebar-bottom-links"><button onClick={onHelp}><CircleHelp size={18} /> Help & shortcuts</button><a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={18} /> View on GitHub <ArrowUpRight size={13} /></a><div className="local-label"><span /> {IS_HOSTED ? 'Online workspace' : 'Local workspace'} <span>v{APP_VERSION}</span></div></div>
     </aside>
 
     <div className="home-content">
-      <header className="home-topbar"><span className="home-breadcrumb">Workspace <ChevronRight size={14} /><strong>Overview</strong></span><a className="brand mobile-home-brand" href="/" aria-label="Reage home"><BrandLogo /></a><div><span className="privacy-pill"><LockKeyhole size={13} /> Private by design</span><button className="icon-button" onClick={onHelp} aria-label="Help & shortcuts"><CircleHelp size={19} /></button></div></header>
+      <header className="home-topbar"><span className="home-breadcrumb">Workspace <ChevronRight size={14} /><strong>Overview</strong></span><a className="brand mobile-home-brand" href="/" aria-label="Reage home"><BrandLogo /></a><div><span className="privacy-pill"><LockKeyhole size={13} /> {IS_HOSTED ? 'No saved documents' : 'Private by design'}</span><a className="github-link" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Reage on GitHub"><Github size={17} /> GitHub <ArrowUpRight size={13} /></a><button className="icon-button" onClick={onHelp} aria-label="Help & shortcuts"><CircleHelp size={19} /></button></div></header>
       <main id="workspace" className="home-main">
         <div className="home-intro"><div><span className="eyebrow">A CLEAR SPACE FOR YOUR NEXT IDEA</span><h1>Your PDFs.<br /><em>A little more you.<svg viewBox="0 0 340 15" preserveAspectRatio="none" aria-hidden="true"><path d="M3 10Q155 1 335 8M35 14Q191 5 295 11" /></svg></em></h1><p>Fix a word. Refine a detail. Make the page your own.</p></div><div className="intro-note"><span className="note-asterisk">✳</span><span>Good things start<br />with a small change.</span></div></div>
 
@@ -38,7 +39,8 @@ export default function Welcome({ busy, onOpen, onDemo, onHelp, onStartTool }: P
             <div className="paper-stack" aria-hidden="true"><div className="stack-paper back" /><div className="stack-paper front"><span className="paper-fold" /><span className="paper-aa">Aa<span>|</span></span><i /><i /><span className="paper-label">YOUR NEXT CHAPTER</span></div><span className="stack-badge"><Check size={16} /></span><span className="stack-spark">+</span></div>
             <h2 id="upload-title">A fresh page starts here.</h2><p>Drop your PDF anywhere, or choose a file below.</p>
             <button className="button primary upload-primary" onClick={onOpen} disabled={busy} aria-label="Open a PDF"><Upload size={17} /> Choose a PDF <ArrowRight size={17} /></button>
-            <span className="upload-footnote">PDF files up to 30 MB <span>·</span> No account needed</span>
+            <span className="upload-footnote">PDF files up to {MAX_UPLOAD_MB} MB <span>·</span> No account needed</span>
+            {IS_HOSTED && <p className="upload-privacy">{PRIVACY_COPY} <a href={`${GITHUB_URL}#run-locally`} target="_blank" rel="noreferrer">Local setup ↗</a></p>}
           </section>
 
           <section className="sample-panel" aria-labelledby="sample-title"><div className="section-label">TAKE A LOOK AROUND <span>↗</span></div><h2 id="sample-title">Just exploring?</h2><p>Try an example. Make a few changes.<br />See how it feels.</p>
@@ -55,8 +57,8 @@ export default function Welcome({ busy, onOpen, onDemo, onHelp, onStartTool }: P
           <button className="home-tool-card" onClick={() => onStartTool('replace')} disabled={busy}><span className="tool-card-icon butter"><Search size={23} /></span><ArrowUpRight className="tool-card-arrow" size={18} /><h3>Make one change, everywhere</h3><p>Find, preview, and replace<br />with a single undo step.</p><span className="tool-card-link">Find & replace <ArrowRight size={13} /></span></button>
         </div></section>
 
-        <div className="home-reassurance"><span className="reassurance-icon"><ShieldCheck size={25} strokeWidth={1.5} /></span><div><strong>Your work stays in your hands.</strong><p>Local processing. Original files preserved. Open source, always.</p></div><a href="/api/license" target="_blank" rel="noreferrer">Built to be open <ArrowUpRight size={15} /></a></div>
-        <footer className="home-footer"><span><img src="/brand/reage-mark.svg" alt="" /> A little more possibility.</span><div><a href="/api/brand-kit" download><ArrowDownToLine size={14} /> Brand assets</a><button onClick={onHelp}>Help & shortcuts</button><a href="/api/source" download><FileText size={14} /> Source</a></div></footer>
+        <div className="home-reassurance"><span className="reassurance-icon"><ShieldCheck size={25} strokeWidth={1.5} /></span><div><strong>Your work stays in your hands.</strong><p>{IS_HOSTED ? 'Temporary server processing. Original files preserved. Open source, always.' : 'Local processing. Original files preserved. Open source, always.'}</p></div><a href="/api/license" target="_blank" rel="noreferrer">Built to be open <ArrowUpRight size={15} /></a></div>
+        <footer className="home-footer"><span><img src="/brand/reage-mark.svg" alt="" /> A little more possibility.</span><div><a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={14} /> GitHub</a><a href="/api/brand-kit" download><ArrowDownToLine size={14} /> Brand assets</a><button onClick={onHelp}>Help & shortcuts</button><a href="/api/source" download><FileText size={14} /> Source</a></div></footer>
       </main>
     </div>
   </div>

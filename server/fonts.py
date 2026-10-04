@@ -4,6 +4,8 @@ No PDF data is sent to font providers. Installed fonts are indexed locally;
 downloaded Google Fonts and user-supplied fonts are cached on this machine.
 """
 from collections import Counter
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from hashlib import sha256
 from io import BytesIO
@@ -168,7 +170,8 @@ def resolve_embedded(name: str, candidates: list[FontSource], glyphs: list[tuple
 
 
 class FontLibrary:
-    def __init__(self):
+    def __init__(self, memory_only: bool = False):
+        self.memory_only = memory_only
         self.entries: dict[str, dict] = {}
         self.loaded: dict[str, FontSource] = {}
         self.compositions: dict[str, tuple[str, ...]] = {}
@@ -192,6 +195,8 @@ class FontLibrary:
             return None
 
     def index(self, refresh: bool = False):
+        if self.memory_only:
+            return
         if self.indexed and not refresh:
             return
         roots = [Path.home() / ".fonts", Path.home() / ".local/share/fonts", Path("/usr/share/fonts"),
@@ -233,7 +238,7 @@ class FontLibrary:
         self.index(refresh)
         builtin = [{"id": f"builtin:{key}", "name": name, "family": name,
                     "source": "bundled", "style": "", "weight": 400, "italic": False} for key, name in BUILTINS.items()]
-        entries = [{k: v for k, v in entry.items() if k not in ("path", "index", "aliases")}
+        entries = [{k: v for k, v in entry.items() if k not in ("path", "index", "aliases", "buffer")}
                    for entry in self.entries.values()]
         return builtin + sorted(entries, key=lambda entry: entry["name"].casefold())
 
@@ -269,6 +274,11 @@ class FontLibrary:
             entry = self.entries.get(key)
             if not entry:
                 raise ValueError("This font is no longer available. Open Font Studio and select or upload it again.")
+            if self.memory_only:
+                buffer = entry["buffer"]
+                source = FontSource(fitz.Font(fontbuffer=buffer), buffer=buffer, kind=entry["source"], id=key, aliases=entry["aliases"])
+                self.loaded[key] = source
+                return source
             try:
                 modified = entry["path"].stat().st_mtime_ns
             except OSError as exc:
@@ -304,6 +314,19 @@ class FontLibrary:
             fitz.Font(fontbuffer=normalized)
         except Exception as exc:
             raise ValueError("This file is not a reusable TrueType/OpenType font. Upload a .ttf or .otf font file.") from exc
+        if self.memory_only:
+            with TTFont(BytesIO(normalized), lazy=True) as font:
+                names = font["name"]
+                family = names.getDebugName(16) or names.getDebugName(1) or "Uploaded font"
+                style = names.getDebugName(17) or names.getDebugName(2) or "Regular"
+                name = names.getDebugName(4) or f"{family} {style}"
+                entry = {"id": f"font:{sha256(normalized).hexdigest()[:24]}", "name": name,
+                         "family": family, "style": style, "source": kind,
+                         "weight": int(font["OS/2"].usWeightClass) if "OS/2" in font else weight,
+                         "italic": bool(font["head"].macStyle & 2), "buffer": normalized,
+                         "aliases": {name, family, names.getDebugName(6) or name}}
+            self.entries[entry["id"]] = entry
+            return {k: v for k, v in entry.items() if k not in ("buffer", "aliases")}
         directory = cache_root() / "fonts"
         directory.mkdir(exist_ok=True)
         path = directory / f"{sha256(normalized).hexdigest()}.otf"
@@ -352,7 +375,10 @@ class FontLibrary:
         license_name = "OFL.txt" if category == "ofl" else "LICENSE.txt"
         try:
             license_text = download(f"{base}/{license_name}", maximum=200_000)
-            (cache_root() / "fonts" / f"{slug}-LICENSE.txt").write_bytes(license_text)
+            if self.memory_only:
+                entry["license_text"] = license_text.decode("utf-8", errors="replace")
+            else:
+                (cache_root() / "fonts" / f"{slug}-LICENSE.txt").write_bytes(license_text)
         except (ValueError, urllib.error.HTTPError):
             pass
         entry["provider"] = "Google Fonts"
@@ -366,7 +392,27 @@ class FontLibrary:
         return sorted(matches, key=lambda entry: ((entry["weight"] >= 600) != bold, entry["italic"] != italic))
 
 
-library = FontLibrary()
+_local_library = FontLibrary()
+_request_library: ContextVar[FontLibrary | None] = ContextVar("font_library", default=None)
+
+
+class LibraryProxy:
+    """Existing engine imports resolve to a request-isolated hosted library."""
+    def __getattr__(self, name):
+        return getattr(_request_library.get() or _local_library, name)
+
+
+@contextmanager
+def isolated_library():
+    instance = FontLibrary(memory_only=True)
+    token = _request_library.set(instance)
+    try:
+        yield instance
+    finally:
+        _request_library.reset(token)
+
+
+library = LibraryProxy()
 
 
 def script_fonts(text: str) -> list[str]:

@@ -6,6 +6,7 @@ import Editor from './Editor'
 import HelpDialog from './components/HelpDialog'
 import Welcome from './components/Welcome'
 import ServiceStatus from './components/ServiceStatus'
+import { MAX_UPLOAD_MB } from './config'
 
 export default function App() {
   const [document, setDocument] = useState<PdfDocument | null>(null)
@@ -32,7 +33,7 @@ export default function App() {
 
   async function open(file?: File, scanned = false) {
     if (busyRef.current) return
-    if (file && file.size > 30 * 1024 * 1024) { setError('Please choose a PDF smaller than 30 MB.'); return }
+    if (file && file.size > MAX_UPLOAD_MB * 1024 * 1024) { setError(`Please choose a PDF smaller than ${MAX_UPLOAD_MB} MB.${MAX_UPLOAD_MB < 30 ? ' Run Reage locally for larger files.' : ''}`); return }
     if (file && !file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') { setError('Reage opens PDF files. Please choose a .pdf document.'); return }
     if (unsaved.current && !window.confirm('Open another PDF? Export your current work first if you want to keep it.')) return
     busyRef.current = true

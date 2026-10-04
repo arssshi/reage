@@ -5,7 +5,9 @@ import { expect, test } from './fixtures'
 import type { PdfDocument } from '../src/types'
 
 const fixture = fileURLToPath(new URL('../demo/demo.pdf', import.meta.url))
-test.beforeEach(() => test.skip(!existsSync(fixture), 'The private benchmark is supplied locally in demo/demo.pdf'))
+const target = process.env.REAGE_TEST_URL
+const localTarget = !target || ['localhost', '127.0.0.1', '[::1]'].includes(new URL(target).hostname)
+test.beforeEach(() => test.skip(!localTarget || !existsSync(fixture), 'The private benchmark runs only on loopback with a locally supplied fixture'))
 
 test('benchmark: native editing preserves the embedded face and makes tiny text accessible', async ({ page, request }, testInfo) => {
   await page.goto('/')

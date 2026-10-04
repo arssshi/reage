@@ -3,6 +3,7 @@ import { AlertCircle, Check, Languages, LoaderCircle, ScanText, X } from 'lucide
 import type { Worker } from 'tesseract.js'
 import { api, messageOf } from '../api'
 import type { OCRLine, PdfDocument } from '../types'
+import { IS_HOSTED } from '../config'
 
 interface Props {
   document: PdfDocument
@@ -48,7 +49,7 @@ export default function OcrDialog({ document, page, onUpdate, onClose }: Props) 
     const pages = scope === 'page' ? [page] : document.pages.filter(page => page.needs_ocr).map(page => page.index)
     let count = 0
     try {
-      setStatus('Preparing the language model (downloaded once, then cached locally)…')
+      setStatus('Preparing the open language model…')
       setProgress(0)
       // Prepare the server-side cache first so download failures are actionable
       // before starting a worker. Tesseract then reads that local cached asset.
@@ -62,7 +63,7 @@ export default function OcrDialog({ document, page, onUpdate, onClose }: Props) 
         workerPath: `${window.location.origin}/ocr-assets/worker.min.js`,
         corePath: `${window.location.origin}/ocr-assets/tesseract-core-lstm.wasm.js`,
         langPath: `${window.location.origin}/api/ocr-data`,
-        cacheMethod: 'none',
+        cacheMethod: IS_HOSTED ? 'write' : 'none',
         gzip: false,
         errorHandler: error => rejectWorker(new Error(String(error))),
         logger: event => {
@@ -116,7 +117,7 @@ export default function OcrDialog({ document, page, onUpdate, onClose }: Props) 
       <div className="ocr-explanation"><ScanText size={26} /><p>For scans, outlined letters, and broken text layers. Reage recognizes the words, estimates their font and colors, and gives you selectable text regions.</p></div>
       <div className="ocr-options"><label><span><Languages size={15} /> Document language</span><select aria-label="OCR language" disabled={busy} value={language} onChange={event => setLanguage(event.target.value)}>{languages.map(language => <option key={language.code} value={language.code}>{language.name}</option>)}</select></label><label><span>Pages to recognize</span><select aria-label="OCR pages" disabled={busy} value={scope} onChange={event => setScope(event.target.value)}><option value="page">Current page ({page + 1})</option><option value="needed" disabled={!document.pages.some(page => page.needs_ocr)}>All pages needing OCR</option></select></label></div>
       <div className="notice amber"><AlertCircle size={17} /><span>OCR and font matching are estimates. Replacements affect only the selected region; surrounding native text and images stay intact. A solid color covers the selected background, so review textured areas and recognition results before exporting.</span></div>
-      <p className="recovery-help">Recognition runs in your browser. The first use downloads an open language model to your local service. Your PDF is not sent to an OCR provider.</p>
+      <p className="recovery-help">Recognition runs in your browser. {IS_HOSTED ? 'Language models download from the public Tesseract repository. Page rendering and edit processing use our server.' : 'The first use downloads an open language model to your local service.'} Your PDF is not sent to an OCR provider.</p>
       {(busy || recognized !== null) && <div className="ocr-progress" role="status"><div>{busy ? <LoaderCircle className="spin" size={17} /> : <Check size={17} />}<span>{status}</span></div><progress max={100} value={progress} />{recognized !== null && <strong>{recognized} new editable text regions</strong>}</div>}
       {error && <div className="notice error" role="alert"><AlertCircle size={17} /><span>{error}</span></div>}
     </div>

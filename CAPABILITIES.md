@@ -1,8 +1,9 @@
 # Capability matrix
 
 This matrix records implemented features and the remaining roadmap, not Acrobat parity.
-Runtime: local Python/MuPDF service and a current browser. Documents are held in
-bounded, expiring memory; font and OCR assets are cached on this machine.
+Runtime: Python/MuPDF service and a current browser. Local mode uses bounded,
+expiring memory; online mode processes self-contained requests without a saved
+document store. Online limits: 3 MB / 50 pages; local limits: 30 MB / 300 pages.
 
 ## Content and fidelity
 
@@ -42,12 +43,12 @@ bounded, expiring memory; font and OCR assets are cached on this machine.
 | 18 Accessibility | Accessible UI basics; document tagging/remediation pending |
 | 19 Performance | Lazy thumbnails, render cancellation, pixel/upload/session budgets; tiled rendering/process isolation pending |
 | 20 Architecture | Immutable source, validated transactions, font/OCR separation; generalized command/storage abstractions pending |
-| 21 Privacy | Loopback service, document-free asset downloads, explicit session deletion; no cloud mode |
+| 21 Privacy | Local processing or disclosed temporary hosted processing; request-isolated hosted fonts, no saved cloud document store; providers receive no document data |
 | 22 Collaboration | Pending reliable local command/storage model, authentication and conflict semantics |
 | 23 Advanced tools | Comparison, tables, navigation editing, batch and conversions pending |
 | 24 AI | No AI integration; core editor independent of external AI |
 | 25 Interaction details | Dirty state, fonts, validation, filenames, direct input and IME lifecycle acceptance tests; history bounded to 100 states; remaining fine-grained text operations pending |
-| 26 Testing | 67 backend tests, 5 launcher tests, 19 browser workflows; independent PDF.js extraction/render and private pixel benchmark; full plan corpus remains incomplete |
+| 26 Testing | Engine/API and stateless-hosting tests, 5 launcher tests, 19 local browser workflows and 5 hosted workflows; independent PDF.js extraction/render and private local pixel benchmark; full plan corpus remains incomplete |
 | 27 Measurements | Pixel comparisons and geometry checks in engine tests; reproducible interaction measurements emitted by `e2e/inline.spec.ts` into ignored `test-results/` |
 | 28–30 Phases and delivery | Expand acceptance coverage before broadening engine scope; this ledger records unfinished requirements |
 

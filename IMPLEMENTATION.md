@@ -2,9 +2,10 @@
 
 ## Engine and application
 
-React 19 / TypeScript / Vite UI; local FastAPI and PyMuPDF engine; fontTools font
-repair and Tesseract.js OCR. No authentication, cloud storage, collaboration,
-or external AI service exists. The service binds to loopback. PDF bytes remain
+React 19 / TypeScript / Vite UI; FastAPI and PyMuPDF engine; fontTools font
+repair and Tesseract.js OCR. Local mode binds to loopback; hosted mode uses
+stateless Vercel functions. No accounts, saved cloud documents, collaboration,
+or external AI service exists. PDF bytes remain
 immutable during text editing: validated transactions remove original text and
 insert replacements. This is real PDF editing, not a white-rectangle text overlay.
 
@@ -95,3 +96,24 @@ marks, outlined logo lockups, icons, social artwork and the vector print board.
 Ember, apricot, cream and espresso lead; sage and rose are complementary accents.
 Caveat is bundled/preloaded locally for homepage handwriting, alongside Manrope
 and DM Sans. `public/brand/BRAND-GUIDE.md` and `tokens.json` describe the identity.
+
+## v0.6 stateless hosting
+
+`api/index.py` exposes `server/cloud.py` behind Vercel's `/api/*` rewrite.
+`src/cloud.ts` translates the editor's operations into bounded multipart requests
+containing the original PDF, recovery operations and added font programs. Each
+request independently inspects the immutable source and replays recovery state;
+native edits still use the same engine, validation, preview and export pipeline.
+
+There is no shared document-ID store in this deployment. A context-local font
+library isolates uploads; content hashes keep font choices stable across workers.
+Font/OCR caches that can contain private source material are cleared before the
+engine lock is released. The hosted interface explains temporary server processing,
+and the local edition retains its original document-on-device workflow.
+
+The online limits are 3 MB input, 50 pages, 4 MB combined multipart requests,
+4.3 MB results and eight added fonts. Public language models bypass the function
+body limit through validated redirects. Backend tests cover missing document
+state, isolated font libraries, portable font IDs, recovered regions, Unicode,
+size limits and unchanged pixels. Dedicated browser workflows use only original
+public samples, including against the production URL.

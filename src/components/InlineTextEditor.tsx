@@ -31,7 +31,9 @@ export default function InlineTextEditor({ documentId, span, draft, scale, caret
       setAscent(style.ascent)
       if (!style.web_font) { setPreview('Live draft · PDF font verified on apply'); return }
       const name = `ReageInline${crypto.randomUUID().replaceAll('-', '')}`
-      face = new FontFace(name, `url(/api/documents/${documentId}/inline-font/${span.id}?font=${encodeURIComponent(draft.font)})`, {
+      const buffer = await api.inlineFont(documentId, span.id, draft.font)
+      if (!active) return
+      face = new FontFace(name, buffer, {
         ascentOverride: `${style.ascent * 100}%`, descentOverride: `${(1 - style.ascent) * 100}%`, lineGapOverride: '0%',
       })
       await face.load()

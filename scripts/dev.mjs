@@ -122,7 +122,7 @@ async function main() {
   } else {
     const python = findPython()
     console.log(`Starting PDF service with ${python}`)
-    backend = spawn(python, ['-m', 'uvicorn', 'server.app:app', '--host', '127.0.0.1', '--port', String(apiPort)], {
+    backend = spawn(python, ['-m', 'uvicorn', process.env.REAGE_HOSTED === '1' ? 'server.cloud:app' : 'server.app:app', '--host', '127.0.0.1', '--port', String(apiPort)], {
       cwd: root, stdio: 'inherit', env: { ...process.env, PYTHONUNBUFFERED: '1' }, windowsHide: true,
     })
     backend.on('error', error => { backendFailure = error })

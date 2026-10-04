@@ -83,6 +83,10 @@ kbd { display: inline-flex; align-items: center; justify-content: center; font: 
 .home-breadcrumb { display: flex; align-items: center; gap: 13px; font-size: 12px; color: var(--muted); }.home-breadcrumb strong { color: var(--ink); font-weight: 500; }.home-breadcrumb > svg { color: #a1a997; }
 .home-topbar > div { display: flex; align-items: center; gap: 18px; }
 .privacy-pill { display: inline-flex; align-items: center; gap: 7px; color: #65785c; font-size: 11px; }
+.github-link { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; background: white; font-size: 12px; font-weight: 600; }
+.github-link:hover { border-color: var(--accent); color: var(--accent); }
+.upload-panel > .upload-privacy { max-width: 440px; margin-top: 14px; font-size: 10px; line-height: 1.7; }
+.upload-privacy a, .status-bar a { text-decoration: underline; text-underline-offset: 3px; }
 .mobile-home-brand { display: none; }
 .home-main { max-width: 1320px; margin: auto; padding: 45px 48px 0; }
 .home-intro { display: flex; align-items: center; justify-content: space-between; gap: 30px; margin-bottom: 31px; }
@@ -345,5 +349,6 @@ kbd { background: #fff8f1; }
 @media (max-width: 720px) { .inspector.has-selection { border-color: #e6d3bf; }.mobile-properties-toggle > svg:first-child, .mobile-properties-toggle > svg:last-child { color: #bb9671; } }
 @media (max-width: 580px) { .home-intro h1 em { font-size: 49px; letter-spacing: -.65px; }.home-intro > div > p { margin-top: 19px; }.home-intro h1 em > svg { height: 8px; bottom: -8px; } }
 @media (max-width: 360px) { .home-intro h1 em { font-size: 44px; letter-spacing: -.7px; } }
+@media (max-width: 720px) { .home-topbar .privacy-pill { display: none; }.home-topbar > div { gap: 8px; }.status-bar > div { flex-wrap: wrap; }.status-bar { height: auto; min-height: 30px; gap: 8px; }.dialog-footer { flex-wrap: wrap; gap: 12px; } }
 @media (prefers-contrast: more) { :root { --muted: #604b3e; --border: #b39378; }.field-helper, .eyebrow, .session-status, .canvas-topline, .status-bar { color: #654b36; } }
 @media (prefers-reduced-motion: reduce) { *, *:before, *:after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

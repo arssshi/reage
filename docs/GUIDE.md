@@ -9,7 +9,7 @@ FastAPI, and PyMuPDF. Open a PDF, select an existing text run, change its
 content, and export a searchable PDF using the original font whenever that
 font can be reused.
 
-Reage v0.5 provides three editing paths: native PDF text, recovered text from
+Reage v0.6 provides three editing paths: native PDF text, recovered text from
 local OCR, and visual replacement regions. It includes font detection,
 embedded-font recovery, a local font library, and open-font downloads.
 
@@ -17,6 +17,24 @@ The Document Studio update adds direct on-page typing, a redesigned workspace,
 an orange-and-cream light interface, a keyboard command palette, transaction-based find/replace,
 and an applied-edit fidelity report. See [IMPLEMENTATION.md](../IMPLEMENTATION.md)
 for architecture and [CAPABILITIES.md](../CAPABILITIES.md) for supported features and the roadmap.
+
+## Online and local editions
+
+Use **https://reage0.vercel.app** to edit without installing anything. The online
+workspace accepts PDFs up to **3 MB / 50 pages**. Each processing operation sends
+the source PDF, recovery instructions and any added fonts to the hosted Python
+service. The app discards request data after processing and does not maintain
+a saved document store. Editing state lives in the current browser tab.
+Fonts uploaded online are not shared between visitors or saved to a font cache.
+OCR recognition runs in the browser; page rendering and edit processing use the server.
+
+Vercel limits request/response sizes: Reage bounds combined PDF/font/recovery
+requests to 4 MB and results to 4.3 MB, with up to eight extra fonts. Particularly
+detailed PDFs or large font programs can reach these limits even below 3 MB input.
+The local edition supports 30 MB / 300 pages and processes PDFs on your machine.
+Instructions about installed fonts, persistent font caches and expiring server
+sessions below describe **local mode**. Both editions require exporting before
+closing or refreshing the browser; neither provides autosaved projects.
 
 ## Upgrading from an earlier version
 
@@ -301,13 +319,33 @@ its in-memory documents. Reopening an exported PDF starts a new editing session.
 
 ## Website and deployment
 
-The project website is [reage0.vercel.app](https://reage0.vercel.app). It hosts a
-preview of the interface; use the local setup above for the working editor.
+The project website is [reage0.vercel.app](https://reage0.vercel.app). The checked-in
+`vercel.json` builds Vite and routes `/api/*` to `api/index.py`, the stateless
+FastAPI application in `server/cloud.py`. Python 3.12 and `requirements.txt`
+provide the MuPDF engine. No database, object storage, secret key, or login is needed.
 
-`run.py` serves the built interface and PDF API together on loopback. Vercel can
-host a static frontend, but the current editor also requires the local
-Python/MuPDF service. A frontend-only deployment does not provide PDF processing.
-This release is designed for a single user's machine, not a public multi-user API.
+`src/cloud.ts` carries all document state with each request, so another serverless
+instance or cold start can process the next operation. Font libraries are
+request-scoped, uploaded font IDs are content-based, and OCR/region registration
+is replayed deterministically. No server-side document lookup exists in online mode.
+Public OCR model requests redirect to the Tesseract repository, avoiding function
+payload limits without sharing document content. Source and brand downloads remain available.
+
+`run.py` still serves the local interface and stateful API on loopback.
+For local hosted-mode development, set `REAGE_HOSTED=1` and
+`VITE_REAGE_MODE=hosted` before `npm run dev`. Use a free `REAGE_API_PORT` if a
+local-mode server is already running. Frontend mode otherwise follows the hostname:
+loopback uses local mode, public hostnames use hosted mode.
+
+To verify a deployment using **only generated public samples**:
+
+```bash
+REAGE_TEST_URL=https://reage0.vercel.app REAGE_TEST_HOSTED=1 npm run test:e2e
+```
+
+For hosted-mode tests on localhost, omit `REAGE_TEST_URL` and set
+`REAGE_TEST_HOSTED=1`; Playwright starts the stateless API and frontend together.
+Never upload a private benchmark to a public test target.
 
 ## Why PDF fonts are hard
 

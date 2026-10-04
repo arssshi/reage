@@ -4,10 +4,10 @@
 
 <h1 align="center">Reage</h1>
 <p align="center"><strong>A free, privacy-first, open-source alternative to Adobe Acrobat.</strong></p>
-<p align="center">Edit the words. Keep the character. Keep your documents on your machine.</p>
+<p align="center">Edit the words. Keep the character. Online or on your own machine.</p>
 
 <p align="center">
-  <a href="https://reage0.vercel.app">Website · UI preview</a> ·
+  <a href="https://reage0.vercel.app">Try Reage online</a> ·
   <a href="#run-locally">Get started</a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
   <a href="CAPABILITIES.md">Capabilities</a> ·
@@ -16,7 +16,7 @@
 
 ## A little less friction. A lot more yours.
 
-Reage is a local PDF editor for the moments when you need to fix a sentence,
+Reage is a PDF editor for the moments when you need to fix a sentence,
 recover a font, or edit a scanned line—without a subscription or an account.
 Click text, type on the page, and export a searchable copy. Your original stays intact.
 
@@ -34,14 +34,25 @@ page organization, form editing, and digital signing are still on the roadmap.
 OCR estimates typography and uses solid-color backgrounds; visual region
 replacement is not secure redaction. See the [full capability matrix](CAPABILITIES.md).
 
+## Try it online
+
+Open **[reage0.vercel.app](https://reage0.vercel.app)** → try a sample or choose
+a PDF → edit → **Export PDF**. No installation or account needed.
+
+The online workspace supports **3 MB PDFs, up to 50 pages**. Documents and added
+fonts travel to the server for each processing request; the app keeps no saved
+document store. Vercel also limits combined requests and exported results. For
+larger or sensitive documents, use the local edition below (30 MB / 300 pages).
+
 ## Your PDFs stay yours
 
-- **Local processing.** The browser talks to a Python service on your own machine.
-  PDF editing and OCR stay local, with no accounts, analytics, or cloud document storage.
+- **Choose where processing happens.** Online mode uses temporary server processing.
+  Local mode keeps PDF editing on your machine. Neither mode needs an account.
 - **Transparent network use.** Optional public font downloads and first-use OCR
-  language downloads need internet. They send no document content and are cached locally.
+  language downloads need internet. Your documents are never sent to these providers.
+  OCR recognition runs in the browser; online page rendering uses the server.
 - **You control the files.** Export an edited copy whenever you like. Sessions are
-  temporary—export before closing or restarting; inactive documents expire after two hours.
+  temporary—export before closing or refreshing. Local server sessions expire after two hours.
 
 **Free to use, study, modify, and share under [AGPL-3.0-or-later](LICENSE).**
 You can keep running and modifying your own copy under that license,
@@ -85,9 +96,7 @@ npm run build
 Open **http://127.0.0.1:8000** → try a sample or open a PDF → click text → edit → **Export PDF**.
 After setup, only the final Python command is needed to launch again.
 
-The **[website](https://reage0.vercel.app)** currently hosts a preview of the interface.
-PDF editing requires the local Python service; use the setup above for the full
-editor. [Setup, troubleshooting, and deployment details →](docs/GUIDE.md)
+[Setup, troubleshooting, and deployment details →](docs/GUIDE.md)
 
 ## Built in the open
 

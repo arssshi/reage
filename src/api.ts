@@ -1,5 +1,7 @@
 import type { Box, Change, FontEntry, FontProbe, OCRLine, PdfDocument, TextEdit } from './types'
 import { version as APP_VERSION } from '../package.json'
+import { IS_HOSTED } from './config'
+import { cloudRequest } from './cloud'
 
 export { APP_VERSION }
 
@@ -12,20 +14,20 @@ async function checkService(force = false): Promise<void> {
   checkingService = (async () => {
     let response: Response
     try {
-      response = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(5000) })
+      response = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(IS_HOSTED ? 30000 : 5000) })
     } catch {
-      throw new Error('The Python PDF service is unavailable. Stop the old Reage servers and run npm run dev from the project folder, then open the Local URL printed in that terminal.')
+      throw new Error(IS_HOSTED ? 'The PDF service is taking longer to respond. Check your connection and try again.' : 'The Python PDF service is unavailable. Stop the old Reage servers and run npm run dev from the project folder, then open the Local URL printed in that terminal.')
     }
     await checked(response)
     let body
     try { body = await response.json() } catch {
-      throw new Error('This page is not connected to the Reage PDF service. Run npm run dev and open its Local URL, or build the app and launch python run.py.')
+      throw new Error(IS_HOSTED ? 'The PDF service is temporarily unavailable. Please retry in a moment.' : 'This page is not connected to the Reage PDF service. Run npm run dev and open its Local URL, or build the app and launch python run.py.')
     }
     if (body.version !== APP_VERSION) {
-      throw new Error(`Service version mismatch: this interface is ${APP_VERSION}, but the running PDF service is ${body.version ?? 'unknown'}. Stop the old Python/Reage server and run npm run dev again, then reload this page. For the built app, restart python run.py.`)
+      throw new Error(IS_HOSTED ? 'A new version of Reage is available. Export any open work before refreshing the page.' : `Service version mismatch: this interface is ${APP_VERSION}, but the running PDF service is ${body.version ?? 'unknown'}. Stop the old Python/Reage server and run npm run dev again, then reload this page. For the built app, restart python run.py.`)
     }
-    if (body.status !== 'ok' || body.service !== 'reage') throw new Error('The connected server is not a ready Reage PDF service. Start Reage with npm run dev.')
-    verifiedUntil = Date.now() + 5000
+    if (body.status !== 'ok' || body.service !== 'reage') throw new Error('The connected PDF service is not ready. Please try again.')
+    verifiedUntil = Date.now() + (IS_HOSTED ? 60000 : 5000)
   })()
   try { await checkingService } catch (error) { verifiedUntil = 0; throw error }
   finally { checkingService = null }
@@ -33,7 +35,7 @@ async function checkService(force = false): Promise<void> {
 
 async function checked(response: Response): Promise<Response> {
   if (!response.ok) {
-    let message = `The local service returned an error (${response.status}).`
+    let message = response.status === 413 ? 'This request is too large for the online workspace. Try a smaller PDF or run Reage locally.' : `The PDF service returned an error (${response.status}). Please try again.`
     try {
       const body = await response.json()
       message = typeof body.detail === 'string' ? body.detail : Array.isArray(body.detail)
@@ -48,10 +50,10 @@ async function checked(response: Response): Promise<Response> {
 async function request(path: string, options?: RequestInit) {
   try {
     await checkService()
-    return await checked(await fetch(`/api${path}`, options))
+    return await checked(await (IS_HOSTED ? cloudRequest(path, options) : fetch(`/api${path}`, options)))
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error('Cannot reach the local Reage service. Run npm run dev to start the interface and Python PDF service together, then reopen the Local URL printed in that terminal.')
+      throw new Error(IS_HOSTED ? 'The connection was interrupted. Your edits are still in this tab; check your connection and try again.' : 'Cannot reach the local Reage service. Run npm run dev to start the interface and Python PDF service together, then reopen the Local URL printed in that terminal.')
     }
     throw error
   }
@@ -59,6 +61,9 @@ async function request(path: string, options?: RequestInit) {
 
 export const api = {
   checkService,
+  async inlineFont(id: string, span: string, font: string): Promise<ArrayBuffer> {
+    return (await request(`/documents/${id}/inline-font/${span}?font=${encodeURIComponent(font)}`)).arrayBuffer()
+  },
   async original(id: string): Promise<Blob> { return (await request(`/documents/${id}/original`)).blob() },
   async inlineStyle(id: string, span: string, font: string): Promise<{ name: string; ascent: number; web_font: boolean; subset: boolean }> {
     return (await request(`/documents/${id}/inline-style/${span}?font=${encodeURIComponent(font)}`)).json()
