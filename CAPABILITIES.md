@@ -48,7 +48,7 @@ document store. Online limits: 3 MB / 50 pages; local limits: 30 MB / 300 pages.
 | 23 Advanced tools | Comparison, tables, navigation editing, batch and conversions pending |
 | 24 AI | No AI integration; core editor independent of external AI |
 | 25 Interaction details | Dirty state, fonts, validation, filenames, direct input and IME lifecycle acceptance tests; history bounded to 100 states; remaining fine-grained text operations pending |
-| 26 Testing | Engine/API and stateless-hosting tests, 5 launcher tests, 19 local browser workflows and 5 hosted workflows; independent PDF.js extraction/render and private local pixel benchmark; full plan corpus remains incomplete |
+| 26 Testing | Engine/API and stateless-hosting tests, 5 launcher tests, 19 local browser workflows and 6 hosted workflows; independent PDF.js extraction/render and private local pixel benchmark; full plan corpus remains incomplete |
 | 27 Measurements | Pixel comparisons and geometry checks in engine tests; reproducible interaction measurements emitted by `e2e/inline.spec.ts` into ignored `test-results/` |
 | 28–30 Phases and delivery | Expand acceptance coverage before broadening engine scope; this ledger records unfinished requirements |
 

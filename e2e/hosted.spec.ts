@@ -91,6 +91,21 @@ test.describe('hosted editor', () => {
     await expect(page.locator('.font-status')).toContainText(/Carlito/)
   })
 
+  test('source and brand downloads include their artwork and licenses', async ({ request }) => {
+    for (const [route, expected] of [
+      ['source', ['reage/server/cloud.py', 'reage/api/index.py', 'reage/public/font-licenses.txt', 'reage/public/brand/reage-social-card.png']],
+      ['brand-kit', ['reage-brand-kit/reage-brand-board.pdf', 'reage-brand-kit/LICENSE', 'reage-brand-kit/font-licenses.txt']],
+    ] as const) {
+      const response = await request.get(`/api/${route}`)
+      expect(response.ok()).toBeTruthy()
+      expect(response.headers()['content-type']).toContain('application/zip')
+      const archive = await response.body()
+      expect(archive.subarray(0, 2).toString()).toBe('PK')
+      // ZIP headers retain filenames verbatim, even when entries are compressed.
+      for (const name of expected) expect(archive.includes(Buffer.from(name))).toBeTruthy()
+    }
+  })
+
   test('oversize uploads are rejected before any document is sent', async ({ page }) => {
     let requests = 0
     page.on('request', request => { if (request.url().endsWith('/api/process')) requests++ })

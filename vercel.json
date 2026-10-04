@@ -6,6 +6,7 @@
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
+      "includeFiles": "public/**",
       "excludeFiles": "{node_modules/**,dist/**,.git/**,.venv/**,demo/**,test-results/**,.pytest_cache/**,**/__pycache__/**,plan.md,BENCHMARK.md,PERFORMANCE.md}"
     }
   },
