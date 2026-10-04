@@ -1,0 +1,93 @@
+[
+  {
+    "source": "reage-logo.svg",
+    "file": "reage-logo.png",
+    "width": 2160,
+    "height": 640,
+    "transparent": true
+  },
+  {
+    "source": "reage-logo-inverse.svg",
+    "file": "reage-logo-inverse.png",
+    "width": 2160,
+    "height": 640,
+    "transparent": true
+  },
+  {
+    "source": "reage-mark.svg",
+    "file": "reage-app-icon-512.png",
+    "width": 512,
+    "height": 512,
+    "transparent": true
+  },
+  {
+    "source": "reage-mark-inverse.svg",
+    "file": "reage-avatar-inverse.png",
+    "width": 512,
+    "height": 512,
+    "transparent": true
+  },
+  {
+    "source": "reage-mark.svg",
+    "file": "reage-mark.png",
+    "width": 1024,
+    "height": 1024,
+    "transparent": true
+  },
+  {
+    "source": "reage-mark.svg",
+    "file": "reage-mark-4k.png",
+    "width": 4096,
+    "height": 4096,
+    "transparent": true
+  },
+  {
+    "source": "reage-mark-inverse.svg",
+    "file": "reage-mark-inverse-4k.png",
+    "width": 4096,
+    "height": 4096,
+    "transparent": true
+  },
+  {
+    "source": "reage-mark-mono.svg",
+    "file": "reage-mark-mono.png",
+    "width": 512,
+    "height": 512,
+    "transparent": true
+  },
+  {
+    "source": "reage-wordmark.svg",
+    "file": "reage-wordmark.png",
+    "width": 1584,
+    "height": 528,
+    "transparent": true
+  },
+  {
+    "source": "reage-social-card.svg",
+    "file": "reage-social-card.png",
+    "width": 1200,
+    "height": 630,
+    "transparent": false
+  },
+  {
+    "source": "reage-social-card.svg",
+    "file": "reage-social-card@2x.png",
+    "width": 2400,
+    "height": 1260,
+    "transparent": false
+  },
+  {
+    "source": "reage-brand-board.svg",
+    "file": "reage-brand-board.png",
+    "width": 1600,
+    "height": 1120,
+    "transparent": false
+  },
+  {
+    "source": "reage-brand-board.svg",
+    "file": "reage-brand-board@2x.png",
+    "width": 3200,
+    "height": 2240,
+    "transparent": false
+  }
+]

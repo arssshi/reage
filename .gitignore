@@ -1,0 +1,43 @@
+# Dependencies and generated builds.
+node_modules/
+dist/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.tsbuildinfo
+.cache/
+
+# Local configuration and credentials.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vercel/
+.opencode/
+.vscode/
+.idea/
+
+# Browser artifacts can contain document contents.
+playwright-report/
+test-results/
+blob-report/
+coverage/
+.coverage
+*.log
+
+# Personal documents and internal development notes stay local.
+/demo/
+/plan.md
+/BENCHMARK.md
+/PERFORMANCE.md
+*.pdf
+!public/brand/reage-brand-board.pdf
+
+# OS metadata.
+.DS_Store
+Thumbs.db
+Desktop.ini
+*:Zone.Identifier
