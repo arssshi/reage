@@ -9,7 +9,7 @@ FastAPI, and PyMuPDF. Open a PDF, select an existing text run, change its
 content, and export a searchable PDF using the original font whenever that
 font can be reused.
 
-Reage v0.6 provides three editing paths: native PDF text, recovered text from
+Reage v0.6.1 provides three editing paths: native PDF text, recovered text from
 local OCR, and visual replacement regions. It includes font detection,
 embedded-font recovery, a local font library, and open-font downloads.
 
@@ -68,6 +68,8 @@ process. Stop that process, restart the service, and reload the browser.
   type, and use Backspace directly on the page. IME composition pauses validation.
 - On-page changes validate after a 500 ms typing pause. Enter finishes; export
   waits for pending text validation. Delayed responses cannot overwrite newer input.
+- Draft-to-PDF transitions retain visible text until the new image is decoded.
+  Repeated selections and undo reuse bounded, in-memory render/font caches.
 - Locally load reusable browser fonts; wrap simple CFF/Base-14 programs in
   OpenType without changing outlines or advances. Unsupported browser fonts use
   a labeled live-draft fallback. Finish typing to see the authoritative PDF render.
@@ -453,6 +455,7 @@ render throughput. CPU-heavy work runs outside the API event loop.
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pytest -q
 npm run test:startup
+npm run test:cache
 npm run build
 npx playwright install chromium
 npm run test:e2e
@@ -510,10 +513,10 @@ source directly from your local service.
 
 ## Visual identity and branding assets
 
-The **Warm character** identity uses ember orange, apricot, amber and cream,
-with espresso copy and small sage/rose accents. Caveat adds cursive homepage
-headlines and handwritten notes; Manrope and DM Sans keep controls clear.
-All three fonts are bundled locally. The logo is a lowercase **r.** with an
+The **Precision workspace** identity uses ember orange, apricot, amber and cream,
+with espresso copy and small sage/rose accents. Manrope provides professional
+headings and DM Sans keeps controls clear.
+Both fonts are bundled locally. The logo is a lowercase **r.** with an
 orange/amber fluid fill. The logo,
 favicon, and app-icon exports have a transparent background. The wordmark is
 **reage**, and the secondary pattern uses flowing curves.
@@ -528,7 +531,7 @@ The complete kit is in [`public/brand/`](../public/brand/):
 - Outlined SVG primary/inverse logo lockups, standalone wordmark, three mark variants.
 - Transparent 4096 × 4096 marks, 2160 × 640 logo lockups, and 512-pixel app icons.
 - A 1200 × 630 social card and 1600 × 1120 brand board, plus double-resolution PNGs.
-- A print PDF brand board, fluid contour pattern, and variable Manrope/DM Sans/Caveat webfonts.
+- A print PDF brand board, fluid contour pattern, and variable Manrope/DM Sans webfonts.
 - `exports.json` records each raster file's native dimensions and transparency.
 - [`tokens.json`](../public/brand/tokens.json) for colors, type, spacing, radii, and motion.
 - [`BRAND-GUIDE.md`](../public/brand/BRAND-GUIDE.md) for usage, voice, logo rules, and exports.

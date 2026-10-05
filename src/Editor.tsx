@@ -36,6 +36,7 @@ export default function Editor({ document: initialPdf, initialTool = 'edit', onO
   const applying = session.applying || operationBusy
   const [inlineActive, setInlineActive] = useState(false)
   const [inlineCaret, setInlineCaret] = useState<number | null>(null)
+  const inlineEpoch = useRef(0)
   const [exporting, setExporting] = useState(false)
   const [help, setHelp] = useState(false)
   const [commandsOpen, setCommandsOpen] = useState(false)
@@ -104,7 +105,9 @@ export default function Editor({ document: initialPdf, initialTool = 'edit', onO
   }, [])
 
   async function chooseSpan(span: TextSpan | null, caret?: number) {
+    const epoch = ++inlineEpoch.current
     if (operationBusy || !await session.select(span)) return
+    if (epoch !== inlineEpoch.current) return
     setInlineActive(!!span?.editable && caret !== undefined)
     setInlineCaret(caret ?? null)
     if (span) {
@@ -128,8 +131,10 @@ export default function Editor({ document: initialPdf, initialTool = 'edit', onO
   }
 
   async function moveHistory(next: number) {
-    await session.moveHistory(next - cursor)
-    setInlineActive(false)
+    if (await session.moveHistory(next - cursor)) {
+      inlineEpoch.current++
+      setInlineActive(false)
+    }
   }
 
   async function openOCR() {
@@ -165,9 +170,16 @@ export default function Editor({ document: initialPdf, initialTool = 'edit', onO
   }
 
   async function finishInline() {
+    const epoch = inlineEpoch.current
     const before = session.latest()
     if (before.automatic && !await session.flush()) return
-    if (session.latest().draft?.span_id === before.draft?.span_id) setInlineActive(false)
+    if (epoch === inlineEpoch.current && session.latest().draft?.span_id === before.draft?.span_id) setInlineActive(false)
+  }
+
+  function changeInline(text: string) {
+    inlineEpoch.current++
+    const latest = session.latest().draft
+    if (latest) setDraft({ ...latest, text }, true)
   }
 
   async function openReplace() {
@@ -282,13 +294,13 @@ export default function Editor({ document: initialPdf, initialTool = 'edit', onO
       <div className="canvas-area"><main ref={canvas} className={`document-canvas ${tool === 'view' ? 'view-mode' : ''}`} aria-label="PDF canvas" onClick={() => chooseSpan(null)}>
         {page.needs_ocr && <div className="ocr-page-banner" onClick={event => event.stopPropagation()}><ScanText size={21} /><div><strong>{page.text_kind === 'image' ? 'This page is an image, not a text layer.' : 'This page needs text recovery.'}</strong><p>Recognize the words with local OCR, or draw a region to replace visible text.</p></div><button className="button primary small" onClick={openOCR}>Recognize text</button></div>}
         <div className="canvas-topline"><span>{tool === 'region' ? <Crop size={14} /> : tool === 'edit' ? <TextCursorInput size={14} /> : <MousePointer2 size={14} />}{tool === 'region' ? 'Draw around the text you want to replace' : tool === 'edit' ? inlineActive ? 'Type naturally. Press Enter to finish.' : 'Click any text to make a change' : 'A clear view of your document'}</span><button className={`canvas-boundaries ${showBounds ? 'active' : ''}`} onClick={event => { event.stopPropagation(); setShowBounds(value => !value) }} title="Show all text boundaries" aria-label="Show text boundaries" aria-pressed={showBounds}><Focus size={16} /><span>Text boundaries</span></button></div>
-        <div className="page-stage"><PdfPreview key={pageNumber} documentId={pdf.id} page={page} edits={snapshot.edits} changes={snapshot.changes} scale={scale} selected={selected?.id} showBounds={showBounds} interactive={tool === 'edit'} onSelect={chooseSpan} regionMode={tool === 'region'} onRegion={box => void createRegion(box)} inlineDraft={inlineActive ? draft : null} inlineCaret={inlineCaret} inlineError={error} onInlineChange={text => { const latest = session.latest().draft; if (latest) setDraft({ ...latest, text }, true) }} onInlineCommit={() => void finishInline()} onComposition={session.composition} onInlineClose={() => void finishInline()} /></div>
+        <div className="page-stage"><PdfPreview key={pageNumber} documentId={pdf.id} page={page} edits={snapshot.edits} changes={snapshot.changes} scale={scale} selected={selected?.id} showBounds={showBounds} interactive={tool === 'edit'} onSelect={chooseSpan} regionMode={tool === 'region'} onRegion={box => void createRegion(box)} inlineDraft={inlineActive ? draft : null} inlineCaret={inlineCaret} inlineError={error} onInlineChange={changeInline} onInlineCommit={() => void finishInline()} onComposition={session.composition} onInlineClose={() => void finishInline()} /></div>
         <div className="canvas-bottom"><span>{page.width.toFixed(0)} × {page.height.toFixed(0)} pt</span><span>Page {pageNumber + 1} of {pdf.page_count}</span></div>
       </main>
       <div className="canvas-dock" aria-label="Page and zoom controls"><div className="page-controls"><button className="icon-button" onClick={() => navigate(pageNumber - 1)} disabled={pageNumber === 0} aria-label="Previous page"><ChevronLeft size={17} /></button><select aria-label="Current page" value={pageNumber} onChange={e => navigate(Number(e.target.value))}>{pdf.pages.map(page => <option key={page.index} value={page.index}>{page.index + 1}</option>)}</select><span className="subtle">/ {pdf.page_count}</span><button className="icon-button" onClick={() => navigate(pageNumber + 1)} disabled={pageNumber === pdf.page_count - 1} aria-label="Next page"><ChevronRight size={17} /></button></div><span className="toolbar-divider" /><div className="zoom-controls"><button className="icon-button" onClick={() => setZoom(Math.max(25, Math.round(scale * 100 / 25) * 25 - 25))} disabled={scale <= .25} aria-label="Zoom out"><Minus size={16} /></button><div className="zoom-select"><select aria-label="Zoom" value={zoom} onChange={e => setZoom(['fit', 'page'].includes(e.target.value) ? e.target.value as 'fit' | 'page' : Number(e.target.value))}><option value="fit">Fit width</option><option value="page">Fit page</option>{[25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300].map(value => <option key={value} value={value}>{value}%</option>)}</select><ChevronDown size={12} /></div><button className="icon-button" onClick={() => setZoom(Math.min(300, Math.round(scale * 100 / 25) * 25 + 25))} disabled={scale >= 3} aria-label="Zoom in"><Plus size={16} /></button></div><span className="toolbar-divider" /><button className={`icon-button ${focusMode ? 'active' : ''}`} onClick={() => setFocusMode(value => !value)} aria-label={focusMode ? 'Exit focus mode' : 'Focus mode'} title={focusMode ? 'Exit focus mode' : 'Focus mode'}>{focusMode ? <Minimize2 size={17} /> : <Maximize size={17} />}</button></div>
       </div>
 
-      <Inspector document={pdf} selected={selected} draft={draft} change={snapshot.changes.find(change => change.span_id === selected?.id)} dirty={dirty} applying={applying} error={error} editCount={snapshot.edits.length} onDraft={draft => { setDraft(draft); setError('') }} onApply={applyDraft} onRestore={restore} onClose={() => chooseSpan(null)} onFonts={() => setFontStudio(true)} onOCR={openOCR} onFocusSelection={focusSelection} fonts={libraryFonts} expanded={inspectorExpanded} onToggle={() => void toggleProperties()} onFidelity={() => setFidelityOpen(true)} />
+      <Inspector document={pdf} selected={selected} draft={draft} change={snapshot.changes.find(change => change.span_id === selected?.id)} dirty={dirty} applying={applying} automatic={inlineActive} error={error} editCount={snapshot.edits.length} onDraft={draft => { setDraft(draft); setError('') }} onApply={applyDraft} onRestore={restore} onClose={() => chooseSpan(null)} onFonts={() => setFontStudio(true)} onOCR={openOCR} onFocusSelection={focusSelection} fonts={libraryFonts} expanded={inspectorExpanded} onToggle={() => void toggleProperties()} onFidelity={() => setFidelityOpen(true)} />
     </div>
     <footer className="status-bar"><div><span className="status-dot" /><span>{IS_HOSTED ? 'Temporary server processing' : 'On your device'}</span><LockKeyhole size={12} /><a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub ↗</a></div><div><span>{snapshot.edits.length} {snapshot.edits.length === 1 ? 'text edit' : 'text edits'}</span><span className="status-separator">·</span><span>{Math.round(scale * 100)}%</span><span className="status-separator">·</span><span>reage v{APP_VERSION}</span></div></footer>
     {notice && <div className={`toast ${notice.startsWith('Export failed') ? 'toast-error' : ''}`} role="status">{notice.startsWith('Export failed') ? <AlertCircle size={17} /> : <Check size={17} />}<span>{notice}</span><button className="icon-button tiny" onClick={() => setNotice('')} aria-label="Dismiss notification"><X size={14} /></button></div>}

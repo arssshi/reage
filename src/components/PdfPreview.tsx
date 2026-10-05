@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, LoaderCircle, RotateCw } from 'lucide-react'
 import { api, messageOf } from '../api'
 import type { Box, Change, PdfPage, TextEdit, TextSpan } from '../types'
@@ -26,10 +26,15 @@ interface Props {
   onRegion?: (box: Box) => void
 }
 
+interface Surface { span: TextSpan; draft: TextEdit; caret: number | null }
+interface Frame { url: string; key: string; hidden: string | null; changes: Change[] }
+
 export default function PdfPreview({ documentId, page, edits, changes = [], scale, thumbnail = false, selected, showBounds, interactive, onSelect, regionMode, onRegion, inlineDraft, inlineCaret, inlineError = '', onInlineChange, onInlineCommit, onComposition, onInlineClose }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(!thumbnail)
-  const [image, setImage] = useState('')
+  const [frame, setFrame] = useState<Frame | null>(null)
+  const [surfaces, setSurfaces] = useState<Surface[]>([])
+  const image = frame?.url ?? ''
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
@@ -39,16 +44,40 @@ export default function PdfPreview({ documentId, page, edits, changes = [], scal
     return [Math.max(0, Math.min(page.width, (x - rect.left) * page.width / rect.width)), Math.max(0, Math.min(page.height, (y - rect.top) * page.height / rect.height))]
   }
   const pageIds = useMemo(() => new Set(page.spans.map(s => s.id)), [page])
+  const activeSpan = interactive && inlineDraft?.span_id === selected ? page.spans.find(span => span.id === selected && span.editable) : undefined
+  const activeSurface: Surface | null = activeSpan && inlineDraft ? { span: activeSpan, draft: inlineDraft, caret: inlineCaret ?? null } : null
   const pageEdits = edits.filter(edit => pageIds.has(edit.span_id))
   // The input is a transient editing surface. Remove just the active PDF run
   // from its background using the real engine, preserving graphics underneath.
-  if (interactive && inlineDraft && selected) {
-    const index = pageEdits.findIndex(edit => edit.span_id === selected)
+  if (activeSurface) {
+    const index = pageEdits.findIndex(edit => edit.span_id === activeSurface.span.id)
     if (index >= 0) pageEdits.splice(index, 1)
-    pageEdits.push({ span_id: selected, text: '', font: 'auto', size: null, color: null, fit: false })
+    pageEdits.push({ span_id: activeSurface.span.id, text: '', font: 'auto', size: null, color: null, fit: false })
   }
   const serialized = JSON.stringify(pageEdits)
   const renderScale = thumbnail ? 0.3 : Math.min(6, Math.max(1, scale * Math.min(window.devicePixelRatio || 1, 2)))
+  const renderKey = `${documentId}:${page.index}:${renderScale}:${serialized}`
+  const hiddenSpan = activeSurface?.span.id ?? null
+  const renderChanges = useRef(changes)
+  renderChanges.current = changes
+  const previousScale = useRef(renderScale)
+
+  // Keep the last draft visible until a fully decoded replacement frame takes
+  // over. During fast A → B → C selection changes, more than one handoff can
+  // be outstanding; none may expose the text-less intermediate PDF image.
+  useLayoutEffect(() => {
+    setSurfaces(previous => {
+      const next = (frame?.key === renderKey ? [] : previous).filter(surface => surface.span.id !== activeSpan?.id)
+      if (activeSpan && inlineDraft) next.push({ span: activeSpan, draft: inlineDraft, caret: inlineCaret ?? null })
+      return next.length === previous.length && next.every((surface, i) => surface.span === previous[i].span && surface.draft === previous[i].draft && surface.caret === previous[i].caret) ? previous : next
+    })
+  }, [activeSpan, inlineDraft, inlineCaret, frame?.key, renderKey])
+  const displayedSurfaces = (frame?.key === renderKey ? [] : surfaces).filter(surface => surface.span.id !== activeSpan?.id)
+  if (activeSurface) displayedSurfaces.push(activeSurface)
+
+  // A displayed object URL belongs to its frame, not the fetch that produced
+  // it. Revoking it when a newer request starts can blank a still-visible page.
+  useEffect(() => () => { if (frame) URL.revokeObjectURL(frame.url) }, [frame])
 
   useEffect(() => {
     if (!thumbnail || visible || !container.current) return
@@ -65,28 +94,37 @@ export default function PdfPreview({ documentId, page, edits, changes = [], scal
   useEffect(() => {
     if (!visible) return
     const controller = new AbortController()
-    let url = ''
     setLoading(true)
     setError('')
-    // Debounce zoom scrubbing and rapid history navigation.
+    const delay = thumbnail ? 120 : previousScale.current === renderScale ? 0 : 60
+    previousScale.current = renderScale
+    // Zoom scrubbing is debounced; selection and cached history paint promptly.
     const timer = window.setTimeout(async () => {
+      let url = ''
+      let published = false
       try {
         const blob = await api.render(documentId, page.index, JSON.parse(serialized), renderScale, controller.signal)
         if (controller.signal.aborted) return
         url = URL.createObjectURL(blob)
-        setImage(url)
+        const decoded = new Image()
+        decoded.src = url
+        await decoded.decode()
+        if (controller.signal.aborted) return
+        setFrame({ url, key: renderKey, hidden: hiddenSpan, changes: renderChanges.current })
+        published = true
         setLoading(false)
       } catch (error) {
         if (!controller.signal.aborted) {
           setError(messageOf(error))
           setLoading(false)
         }
+      } finally {
+        if (url && !published) URL.revokeObjectURL(url)
       }
-    }, thumbnail ? 120 : 60)
+    }, delay)
     return () => {
       window.clearTimeout(timer)
       controller.abort()
-      if (url) URL.revokeObjectURL(url)
     }
   }, [documentId, page.index, serialized, renderScale, visible, thumbnail, retry])
 
@@ -159,7 +197,19 @@ export default function PdfPreview({ documentId, page, edits, changes = [], scal
           {selected === span.id && <><i className="selection-handle tl" /><i className="selection-handle tr" /><i className="selection-handle bl" /><i className="selection-handle br" /></>}
         </button>
       })}
-      {!thumbnail && interactive && selected && inlineDraft && onInlineChange && page.spans.find(span => span.id === selected)?.editable && <InlineTextEditor key={selected} documentId={documentId} span={page.spans.find(span => span.id === selected)!} draft={inlineDraft} scale={scale} caret={inlineCaret ?? null} error={inlineError} onChange={onInlineChange} onCommit={() => onInlineCommit?.()} onComposition={value => onComposition?.(value)} onClose={() => onInlineClose?.()} />}
+      {!thumbnail && displayedSurfaces.map(surface => {
+        const active = surface.span.id === activeSpan?.id
+        const verified = changes.find(change => change.span_id === surface.span.id && change.text === surface.draft.text)
+        const pendingBackground = frame?.hidden !== surface.span.id
+        const painted = frame?.changes.find(change => change.span_id === surface.span.id)?.bbox ?? surface.span.bbox
+        const box = surface.span.bbox
+        const left = Math.min(box[0], painted[0]), top = Math.min(box[1], painted[1])
+        const right = Math.max(box[2], painted[2]), bottom = Math.max(box[3], painted[3])
+        return <div key={surface.span.id} className="inline-surface-layer">
+          {pendingBackground && <div className="inline-source-cover" aria-hidden="true" style={{ left: left * scale - 2, top: top * scale - 2, width: (right - left) * scale + 4, height: (bottom - top) * scale + 4 }} />}
+          <InlineTextEditor documentId={documentId} span={surface.span} draft={surface.draft} fittedSize={surface.draft.fit ? verified?.size : undefined} scale={scale} caret={surface.caret} active={active} pendingBackground={pendingBackground} error={active ? inlineError : ''} onChange={text => { if (active) onInlineChange?.(text) }} onCommit={() => { if (active) onInlineCommit?.() }} onComposition={value => { if (active) onComposition?.(value) }} onClose={() => { if (active) onInlineClose?.() }} />
+        </div>
+      })}
     </div>
   )
 }

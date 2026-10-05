@@ -1,6 +1,6 @@
 {
   "name": "reage",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -12,10 +12,10 @@
     "test:e2e": "playwright test",
     "test:benchmark": "playwright test e2e/benchmark.spec.ts",
     "test:startup": "node --test scripts/dev.test.mjs",
+    "test:cache": "node --experimental-strip-types --test scripts/request-cache.test.mjs",
     "brand:export": "node scripts/export-brand.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/caveat": "5.3.0",
     "@fontsource-variable/dm-sans": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
     "lucide-react": "^0.468.0",

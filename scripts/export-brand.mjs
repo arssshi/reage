@@ -12,7 +12,6 @@ const require = createRequire(import.meta.url)
 const fonts = [
   ['Manrope', '@fontsource-variable/manrope', 'manrope-latin-wght-normal.woff2'],
   ['DM Sans', '@fontsource-variable/dm-sans', 'dm-sans-latin-wght-normal.woff2'],
-  ['Caveat', '@fontsource-variable/caveat', 'caveat-latin-wght-normal.woff2'],
 ]
 let css = ''
 for (const [family, packageName, filename] of fonts) {

@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from io import BytesIO
+from base64 import b64decode
 import json
 import pymupdf as fitz
 import pytest
@@ -60,6 +61,12 @@ def test_inline_font_and_glyph_geometry_are_local_and_validated(client):
     assert style.status_code == 200 and 0 < style.json()["ascent"] < 1
     font = client.get(f"{base}/inline-font/{span['id']}")
     assert font.status_code == (200 if style.json()["web_font"] else 204)
+    combined = client.get(f"{base}/inline-style/{span['id']}?include_font=true").json()
+    assert combined["font_id"] == "original"
+    assert b64decode(combined["font_data"]) == font.content
+    # A live replacement font may not cover the old source text. Its browser
+    # resource can still load; new-text coverage is validated by the transaction.
+    assert client.get(f"{base}/inline-style/{span['id']}?font=script:DEVANAGARI&include_font=true").status_code == 200
     assert client.get(f"{base}/inline-style/missing").status_code == 404
     assert client.get(f"{base}/inline-font/{span['id']}?font=font:missing").status_code == 422
     original = client.get(f"{base}/original")
@@ -141,7 +148,7 @@ def test_brand_kit_download_contains_usable_assets_and_licenses(client):
         assert "SIL OPEN FONT LICENSE" in archive.read(prefix + "font-licenses.txt").decode()
         tokens = json.loads(archive.read(prefix + "tokens.json"))
         assert tokens["colors"] and tokens["typography"]
-        for font in ("manrope-latin-wght-normal.woff2", "dm-sans-latin-wght-normal.woff2", "caveat-latin-wght-normal.woff2"):
+        for font in ("manrope-latin-wght-normal.woff2", "dm-sans-latin-wght-normal.woff2"):
             assert archive.read(prefix + font).startswith(b"wOF2")
         sizes = {
             "reage-logo.png": (2160, 640),

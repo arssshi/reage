@@ -94,8 +94,8 @@ were removed; `src/styles.css` owns the visual system.
 The approved orange direction extends to all brand assets: transparent fluid
 marks, outlined logo lockups, icons, social artwork and the vector print board.
 Ember, apricot, cream and espresso lead; sage and rose are complementary accents.
-Caveat is bundled/preloaded locally for homepage handwriting, alongside Manrope
-and DM Sans. `public/brand/BRAND-GUIDE.md` and `tokens.json` describe the identity.
+Manrope headings and DM Sans controls are bundled locally.
+`public/brand/BRAND-GUIDE.md` and `tokens.json` describe the identity.
 
 ## v0.6 stateless hosting
 
@@ -117,3 +117,31 @@ body limit through validated redirects. Backend tests cover missing document
 state, isolated font libraries, portable font IDs, recovered regions, Unicode,
 size limits and unchanged pixels. Dedicated browser workflows use only original
 public samples, including against the production URL.
+
+## v0.6.1 editing stability and request efficiency
+
+The inline surface and the PDF image now share an explicit handoff. Starting an
+edit temporarily masks the source run until the text-free engine background
+arrives. Finishing retains a noninteractive text mirror until the replacement
+image is decoded. The draft and raster swap in one React commit. Rapid selection
+can retain multiple pending handoffs, and object URLs are revoked only after
+their displayed frame is replaced or unmounted.
+
+Interaction epochs prevent late blur validation from closing a resumed editor.
+An unavailable history operation leaves the active draft visible. Properties
+text remains editable during validation; newer drafts are preserved. Fitted
+typography uses the validated size when it is available. Validation remains
+serialized, debounced after 500 ms, and paused during IME composition.
+
+Per-tab render (32 MB) and inline-font (12 MB) LRU caches share identical
+requests with subscriber-aware cancellation. Closing a document clears its
+entries; OCR/region and font changes invalidate affected entries. Metadata and
+browser font bytes travel together, eliminating a separate font request. Applied
+font diagnostics reuse validation results instead of repeatedly probing while
+typing. Undo/reselection can use cached frames; zoom changes remain debounced.
+
+The interface and brand layouts use Manrope and DM Sans without cursive fonts.
+Deterministic regressions cover delayed render handoffs, original-text masking,
+late blur responses, continued properties input, IME/history, rapid selection,
+network retry, independent exported-text extraction, and request reuse. These
+check the supported workflows; broader PDF compatibility remains in the ledger.

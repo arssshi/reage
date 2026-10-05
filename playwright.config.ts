@@ -6,7 +6,7 @@ const hosted = process.env.REAGE_TEST_HOSTED === '1' || !!(runningApp && !['loca
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: hosted ? '**/hosted.spec.ts' : '**/*.spec.ts',
+  testMatch: hosted ? ['**/hosted.spec.ts', '**/stability.spec.ts'] : '**/*.spec.ts',
   testIgnore: hosted ? undefined : '**/hosted.spec.ts',
   fullyParallel: false,
   workers: 1,

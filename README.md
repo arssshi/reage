@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/brand/reage-social-card.png" alt="Reage — Your PDFs. A little more you." width="960">
+  <img src="public/brand/reage-social-card.png" alt="Reage — Your PDFs. Precisely edited." width="960">
 </p>
 
 <h1 align="center">Reage</h1>
@@ -27,7 +27,7 @@ Click text, type on the page, and export a searchable copy. Your original stays 
 | **Recover scanned text** | Local OCR, including English + Hindi, with reviewable text and region replacement. |
 | **Find and replace** | Preview validated changes across selected text runs, then apply them in one undoable step. |
 | **Check before exporting** | PDF-engine previews, font diagnostics, and an applied-edit fidelity report. |
-| **Work comfortably** | A warm orange workspace, keyboard commands, focus mode, and responsive layouts. |
+| **Work comfortably** | A professional orange workspace, keyboard commands, focus mode, and responsive layouts. |
 
 **Current focus:** precise text editing. Reage is early-stage; paragraph reflow,
 page organization, form editing, and digital signing are still on the roadmap.
@@ -120,4 +120,4 @@ to the people behind Omnirush for helping independent builders create more.
 
 ---
 
-<p align="center"><strong>Your PDFs. A little more you.</strong><br>Open source. Local first. Made for your words.</p>
+<p align="center"><strong>Your PDFs. Precisely edited.</strong><br>Open source. Local first. Made for your words.</p>

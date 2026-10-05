@@ -100,13 +100,16 @@ export function useTextSession(documentId: string, notify: (message: string) => 
     return true
   }
   async function moveHistory(delta: number) {
-    if (!await settle()) return
+    if (!await settle()) return false
+    const next = current.current.cursor + delta
+    if (!delta || next < 0 || next >= current.current.history.length) return false
     update(s => {
       const cursor = s.cursor + delta
       if (cursor < 0 || cursor >= s.history.length) return s
       return { ...s, cursor, automatic: false, error: '', revision: s.revision + 1,
         draft: s.selected ? s.history[cursor].edits.find(edit => edit.span_id === s.selected!.id) ?? originalEdit(s.selected) : null }
     })
+    return true
   }
   async function restore() {
     if (pending.current) await pending.current

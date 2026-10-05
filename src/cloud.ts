@@ -39,6 +39,7 @@ export async function cloudRequest(path: string, options?: RequestInit): Promise
   }
   const payload: Record<string, unknown> = typeof options?.body === 'string' ? JSON.parse(options.body) : {}
   if (url.searchParams.has('font')) payload.font = url.searchParams.get('font')
+  if (url.searchParams.has('include_font')) payload.include_font = url.searchParams.get('include_font') === 'true'
   const operation = {
     path, id: workspace?.id ?? '', name: workspace?.name ?? 'Document.pdf', payload,
     recovery: workspace?.recovery ?? [], compositions,

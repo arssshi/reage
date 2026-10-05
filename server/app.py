@@ -1,5 +1,6 @@
 """Local-only API. Documents live in bounded, expiring process memory."""
 from dataclasses import dataclass
+from base64 import b64encode
 from io import BytesIO
 from pathlib import Path
 import json
@@ -164,21 +165,23 @@ def ocr_languages():
 
 
 @app.get("/api/documents/{document_id}/inline-style/{span_id}")
-def inline_style(document_id: str, span_id: str, font: str = "auto"):
+def inline_style(document_id: str, span_id: str, font: str = "auto", include_font: bool = False):
     with engine_lock:
         data = get_document(document_id)
         span = data.spans.get(span_id)
         if not span:
             raise HTTPException(404, "Text selection not found.")
         try:
-            source, resolution = choose_font(span, span["text"] or " ", font, data.fonts.get(span["font_key"]))
+            source, resolution = choose_font(span, (span["text"] or " ") if font == "auto" else "", font, data.fonts.get(span["font_key"]))
         except ValueError as exc:
             raise EditError(str(exc), span_id, "font_unavailable") from exc
         buffer = source.buffer or source.font.buffer
-        web_font = browser_font(buffer) is not None
+        web_buffer = browser_font(buffer)
+        web_font = web_buffer is not None
         return {"name": source.display_name, "resolution": resolution,
                 "ascent": source.font.ascender / (source.font.ascender - source.font.descender),
-                "web_font": web_font, "subset": span.get("subset", False)}
+                "web_font": web_font, "subset": span.get("subset", False), "font_id": source.id or "original",
+                **({"font_data": b64encode(web_buffer).decode() if web_buffer else None} if include_font else {})}
 
 
 @app.get("/api/documents/{document_id}/inline-font/{span_id}")

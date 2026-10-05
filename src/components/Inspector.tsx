@@ -9,17 +9,19 @@ interface Props {
   onDraft: (draft: TextEdit) => void; onApply: () => void; onRestore: () => void; onClose: () => void
   onFonts: () => void; onOCR: () => void; onFocusSelection: () => void; fonts: FontEntry[]
   expanded: boolean; onToggle: () => void; onFidelity: () => void
+  automatic?: boolean
 }
 
-export default function Inspector({ document, selected, draft, change, dirty, applying, error, editCount, onDraft, onApply, onRestore, onClose, onFonts, onOCR, onFocusSelection, fonts, expanded, onToggle, onFidelity }: Props) {
+export default function Inspector({ document, selected, draft, change, dirty, applying, error, editCount, onDraft, onApply, onRestore, onClose, onFonts, onOCR, onFocusSelection, fonts, expanded, onToggle, onFidelity, automatic = false }: Props) {
   const fontNames = [...new Set(document.pages.flatMap(page => page.spans.filter(span => span.source === 'native').map(span => span.font)))]
   const editableCount = document.pages.reduce((count, page) => count + page.spans.filter(span => span.editable).length, 0)
   const [probe, setProbe] = useState<FontProbe | null>(null)
   const [probeError, setProbeError] = useState('')
   const [probing, setProbing] = useState(false)
+  const verified = change && !dirty ? change : null
   useEffect(() => {
     setProbe(null); setProbeError('')
-    if (!selected || !draft?.text || !selected.editable) { setProbing(false); return }
+    if (!selected || !draft?.text || !selected.editable || automatic || verified || !expanded) { setProbing(false); return }
     setProbing(true)
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
@@ -29,7 +31,7 @@ export default function Inspector({ document, selected, draft, change, dirty, ap
         .finally(() => { if (!controller.signal.aborted) setProbing(false) })
     }, 350)
     return () => { window.clearTimeout(timer); controller.abort() }
-  }, [document.id, selected?.id, selected?.editable, draft?.text, draft?.font, fonts])
+  }, [document.id, selected?.id, selected?.editable, draft?.text, draft?.font, fonts, automatic, verified, expanded])
 
   return <aside className={`inspector ${selected ? 'has-selection' : ''} ${expanded ? 'is-expanded' : 'is-collapsed'}`} aria-label="Text properties">
     <div className="panel-heading inspector-heading"><span className="desktop-inspector-title"><SlidersHorizontal size={16} />{selected ? 'Text properties' : 'Document overview'}</span><button className="mobile-properties-toggle" onClick={onToggle} aria-expanded={expanded} aria-label={expanded ? 'Minimize text properties' : 'Show text properties'}><SlidersHorizontal size={17} /><span>Text properties{selected && <small>{selected.size.toFixed(1)} pt · {selected.font.replace(/^[A-Z]{6}\+/, '')}</small>}</span><ChevronDown size={17} /></button>{selected && <button className="icon-button tiny" onClick={onClose} title="Deselect text" aria-label="Deselect text"><X size={17} /></button>}</div>
@@ -39,7 +41,7 @@ export default function Inspector({ document, selected, draft, change, dirty, ap
         {!selected.editable && <div className="notice amber"><LockKeyhole size={17} /><span>{selected.reason}</span></div>}
         {selected.source !== 'native' && <div className="recovery-selection-note"><ScanText size={17} /><div><strong>{selected.source === 'ocr' ? `${Math.round(selected.confidence ?? 0)}% recognition confidence` : 'Reconstructed content'}</strong><p>Review the estimated font, text, and background.</p></div></div>}
 
-        <section className="property-section"><label className="field-label" htmlFor="text-content">Content <span>{draft.text.length} characters</span></label><textarea id="text-content" aria-label="Text content" placeholder={selected.source === 'region' ? 'What would you like it to say?' : ''} value={draft.text} disabled={!selected.editable || applying} rows={3} spellCheck={false} maxLength={4000} onChange={e => onDraft({ ...draft, text: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onApply() } }} /><span className="field-helper">You can also type directly on the page.</span></section>
+        <section className="property-section"><label className="field-label" htmlFor="text-content">Content <span>{draft.text.length} characters</span></label><textarea id="text-content" aria-label="Text content" placeholder={selected.source === 'region' ? 'What would you like it to say?' : ''} value={draft.text} disabled={!selected.editable} rows={3} spellCheck={false} maxLength={4000} onChange={e => onDraft({ ...draft, text: e.target.value })} onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onApply() } }} /><span className="field-helper">You can also type directly on the page.</span></section>
 
         <section className="property-section"><div className="field-label">Typography <button className="text-button" onClick={onFonts}>Browse fonts <ArrowUpRight size={13} /></button></div><label className="input-label" htmlFor="font-family">Font family</label><div className="select-wrap"><Type size={16} /><select id="font-family" value={draft.font} disabled={!selected.editable || applying} onChange={e => onDraft({ ...draft, font: e.target.value })}>
           <option value="auto">Auto · original font first</option><option value="original" disabled={selected.source !== 'native'}>Original · {selected.font.replace(/^[A-Z]{6}\+/, '')}</option>
@@ -47,7 +49,7 @@ export default function Inspector({ document, selected, draft, change, dirty, ap
           <optgroup label="Font Studio">{fonts.map(font => <option key={font.id} value={font.id}>{font.name}</option>)}{!['auto', 'original', 'helv', 'hebo', 'heit', 'tiro', 'tibo', 'cour'].includes(draft.font) && !fonts.some(font => font.id === draft.font) && <option value={draft.font}>{probe?.name ?? change?.font_name ?? 'Recovered library font'}</option>}</optgroup>
         </select><ChevronDown size={13} /></div>
         <div className="property-grid"><div><label className="input-label" htmlFor="font-size">Size</label><div className="number-field"><input id="font-size" aria-label="Font size" type="number" min="1" max="300" step="0.5" disabled={!selected.editable || applying} value={draft.size ?? Number(selected.size.toFixed(2))} onChange={e => onDraft({ ...draft, size: e.target.value === '' ? null : Number(e.target.value) })} /><span>pt</span></div></div><div><label className="input-label" htmlFor="text-color">Color</label><div className="color-field"><input id="text-color" aria-label="Text color" type="color" value={draft.color ?? selected.color} disabled={!selected.editable || applying} onChange={e => onDraft({ ...draft, color: e.target.value })} /><span>{(draft.color ?? selected.color).slice(1).toUpperCase()}</span></div></div></div>
-        <div className={`font-status ${probeError || probe?.resolution.toLowerCase().includes('substitute') ? 'warning' : ''}`}>{probing ? <LoaderCircle size={14} className="spin" /> : probeError ? <AlertCircle size={15} /> : <CheckCheck size={15} />}<span>{probing ? 'Checking the font…' : probe ? `${probe.name} · ${probe.resolution}` : probeError ? 'Font needs attention' : 'No text to render'}</span></div>{probeError && <p className="font-probe-error">{probeError}</p>}
+        <div className={`font-status ${probeError || (verified?.font_resolution ?? probe?.resolution)?.toLowerCase().includes('substitute') ? 'warning' : ''}`}>{probing ? <LoaderCircle size={14} className="spin" /> : probeError ? <AlertCircle size={15} /> : <CheckCheck size={15} />}<span>{verified ? `${verified.font_name} · ${verified.font_resolution}` : probing ? 'Checking the font…' : probe ? `${probe.name} · ${probe.resolution}` : probeError ? 'Font needs attention' : automatic ? `${selected.font.replace(/^[A-Z]{6}\+/, '')} · checked with your edit` : 'No text to render'}</span></div>{probeError && <p className="font-probe-error">{probeError}</p>}
         {selected.source !== 'native' && <div className="recovery-background"><label className="input-label" htmlFor="region-background">Background · estimated</label><div className="color-field"><input id="region-background" aria-label="Replacement background" type="color" value={draft.background ?? selected.background ?? '#ffffff'} onChange={e => onDraft({ ...draft, background: e.target.value })} /><span>{(draft.background ?? selected.background ?? '#ffffff').toUpperCase()}</span></div></div>}
         </section>
 

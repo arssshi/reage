@@ -194,13 +194,16 @@ def dispatch(operation, data):
         span = data.spans.get(inline[2])
         if not span:
             raise HTTPException(404, "Text selection not found.")
-        font, resolution = choose_font(span, span["text"] or " ", payload.get("font", "auto"), data.fonts.get(span["font_key"]))
+        choice = payload.get("font", "auto")
+        font, resolution = choose_font(span, (span["text"] or " ") if choice == "auto" else "", choice, data.fonts.get(span["font_key"]))
         buffer = browser_font(font.buffer or font.font.buffer)
-        usable = buffer is not None and len(buffer) <= MAX_RESPONSE
+        usable = buffer is not None and len(buffer) <= (MAX_RESPONSE - 10_000) * 3 // 4
         if inline[1] == "inline-font":
             return bounded_response(buffer, "font/otf") if usable else Response(status_code=204)
         return {"name": font.display_name, "resolution": resolution, "web_font": usable,
-                "subset": span.get("subset", False), "ascent": font.font.ascender / (font.font.ascender - font.font.descender)}
+                "subset": span.get("subset", False), "ascent": font.font.ascender / (font.font.ascender - font.font.descender),
+                "font_id": font.id or "original",
+                **({"font_data": b64encode(buffer).decode() if usable else None} if payload.get("include_font") else {})}
     page_route = re.fullmatch(r"pages/(\d+)/(render|ocr|regions)", route)
     if page_route:
         page = int(page_route[1])

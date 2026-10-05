@@ -15,6 +15,7 @@ Before submitting a change, run:
 python -m pytest -q
 npm run build
 npm run test:startup
+npm run test:cache
 npm run test:e2e
 ```
 

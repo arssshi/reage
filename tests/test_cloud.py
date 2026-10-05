@@ -43,6 +43,9 @@ def test_hosted_native_workflow_is_stateless_and_preserves_surrounding_pixels():
         assert style.status_code == 200 and style.json()["web_font"]
         font = operation(fresh, f"/documents/test-document/inline-font/{span['id']}", source)
         assert font.status_code == 200 and font.content[:4] == b"OTTO"
+        combined = operation(fresh, f"/documents/test-document/inline-style/{span['id']}", source, {"include_font": True}).json()
+        assert combined["font_id"] == "original"
+        assert b64decode(combined["font_data"]) == font.content
         exported = operation(fresh, "/documents/test-document/export", source, {"edits": edits})
         assert exported.status_code == 200, exported.text[:200]
         assert exported.headers["cache-control"] == "no-store"

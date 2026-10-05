@@ -31,7 +31,7 @@ document store. Online limits: 3 MB / 50 pages; local limits: 30 MB / 300 pages.
 | 6 Typography | Embedded repair, uploads, public downloads, shaping, font probe, subset/source-object details and edit-fidelity report working; simple CFF browser adapter retains advances; detailed text-state controls pending |
 | 7 Geometry | Fractional PDF bounds, baseline preservation, zoom, boundaries; rulers/snapping/object geometry pending |
 | 8 OCR | Worker recognition, bilingual models, line confidence, regional reconstruction; hidden layer, cleanup, correction queue pending |
-| 9 Interface | Orange/cream Warm character workspace, locally bundled cursive display type, tool-first file opening, command palette, focus mode, fit-page view, high-contrast/reduced-motion preferences and on-demand mobile properties; multiview modes pending |
+| 9 Interface | Professional orange/cream workspace, locally bundled sans-serif type, tool-first file opening, command palette, focus mode, fit-page view, high-contrast/reduced-motion preferences and on-demand mobile properties; multiview modes pending |
 | 10 Objects | Preserve unaffected graphics; image/path manipulation pending |
 | 11 Pages | Navigation only; atomic organization commands pending |
 | 12 Search | Run search and literal replacement, case/whole-word flags, current/all-page scope, selected runs, validated real-PDF preview, one undo step; cross-run/hidden-text/regex matching pending |
@@ -41,14 +41,14 @@ document store. Online limits: 3 MB / 50 pages; local limits: 30 MB / 300 pages.
 | 16 Redaction | Pending a dedicated sanitizing rewrite and independent recovery tests. Region replacement is not redaction |
 | 17 Saving | Validated export/download/reopen; local drafts, named versions and export profiles pending |
 | 18 Accessibility | Accessible UI basics; document tagging/remediation pending |
-| 19 Performance | Lazy thumbnails, render cancellation, pixel/upload/session budgets; tiled rendering/process isolation pending |
+| 19 Performance | Lazy thumbnails, subscriber-safe cancellation, 32 MB render / 12 MB inline-font tab caches, combined font responses, decoded-frame handoffs; pixel/upload/session budgets; tiled rendering/process isolation pending |
 | 20 Architecture | Immutable source, validated transactions, font/OCR separation; generalized command/storage abstractions pending |
 | 21 Privacy | Local processing or disclosed temporary hosted processing; request-isolated hosted fonts, no saved cloud document store; providers receive no document data |
 | 22 Collaboration | Pending reliable local command/storage model, authentication and conflict semantics |
 | 23 Advanced tools | Comparison, tables, navigation editing, batch and conversions pending |
 | 24 AI | No AI integration; core editor independent of external AI |
 | 25 Interaction details | Dirty state, fonts, validation, filenames, direct input and IME lifecycle acceptance tests; history bounded to 100 states; remaining fine-grained text operations pending |
-| 26 Testing | Engine/API and stateless-hosting tests, 5 launcher tests, 19 local browser workflows and 6 hosted workflows; independent PDF.js extraction/render and private local pixel benchmark; full plan corpus remains incomplete |
+| 26 Testing | 74 backend tests, 5 launcher tests, 5 request-cache tests; 27 local and 14 hosted browser workflows including delayed-frame, blur/resume, IME/undo, rapid-selection, retry and cache regressions; independent PDF.js extraction/render and private local pixel benchmark; full plan corpus remains incomplete |
 | 27 Measurements | Pixel comparisons and geometry checks in engine tests; reproducible interaction measurements emitted by `e2e/inline.spec.ts` into ignored `test-results/` |
 | 28–30 Phases and delivery | Expand acceptance coverage before broadening engine scope; this ledger records unfinished requirements |
 

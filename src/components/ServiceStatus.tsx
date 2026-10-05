@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { api, messageOf } from '../api'
+import { IS_HOSTED } from '../config'
 
 export default function ServiceStatus() {
   const [error, setError] = useState('')
@@ -13,7 +14,7 @@ export default function ServiceStatus() {
       catch (error) { if (active) setError(messageOf(error)) }
     }
     void check()
-    const timer = window.setInterval(() => { if (!document.hidden) void check() }, 15000)
+    const timer = window.setInterval(() => { if (!document.hidden) void check() }, IS_HOSTED ? 60000 : 15000)
     window.addEventListener('focus', check)
     return () => { active = false; clearInterval(timer); window.removeEventListener('focus', check) }
   }, [])

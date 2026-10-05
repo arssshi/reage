@@ -1,12 +1,12 @@
-# reage — Warm character
+# reage — Precision workspace
 
 **Edit the page. Keep its character.**
 
 ## The idea
 
 A precise workspace with a human touch. Warm orange gives the identity its
-energy; cream and apricot give documents room to breathe. A handwritten accent
-adds personality to the homepage and brand expressions.
+energy; cream and apricot give documents room to breathe. Clear sans-serif type
+and restrained hierarchy make the homepage and editor feel professional.
 
 The name is **reage**. The mark is a lowercase **r.**: a softly rounded letter
 and circular dot, with orange, amber and apricot flowing inside the silhouette.
@@ -16,9 +16,9 @@ The logo's background is transparent, including the space between letter and dot
 
 | Color | Value | Role |
 | --- | --- | --- |
-| Ember | `#BD5139` | Primary buttons, selected tools, handwritten headlines |
+| Ember | `#BD5139` | Primary buttons, selected tools, headline accents |
 | Tangerine | `#EF853F` | Fluid logo body, larger decorative accents |
-| Amber | `#FFC486` | Fluid highlights, hand-drawn strokes |
+| Amber | `#FFC486` | Fluid logo highlights |
 | Apricot | `#FFE8D6` | Welcoming panels and primary icon backgrounds |
 | Cream | `#FFFAF5` | Main website surface |
 | White | `#FFFFFF` | Document surroundings, controls, cards |
@@ -36,13 +36,11 @@ error colors are separate entries in `tokens.json`.
 
 ## Typography
 
-- **Caveat**, weights 400–500: the cursive homepage headline, handwritten notes,
-  brand signatures and expressive social copy. Keep phrases short and generous.
 - **Manrope**, weights 550–750: structured headings and the outlined wordmark.
 - **DM Sans**, weights 400–600: body copy, navigation, controls, numbers and labels.
 
-Use handwriting to add a personal touch, while keeping controls and long-form
-reading in the clear interface typeface. All three fonts are bundled locally.
+Use consistent sans-serif typography throughout the product and brand layouts.
+Both fonts are bundled locally.
 The supplied WOFF2s retain the SIL Open Font License in `font-licenses.txt`.
 UI type never changes the font program or colors in an uploaded PDF.
 
@@ -80,7 +78,6 @@ UI type never changes the font program or colors in an uploaded PDF.
 | `reage-pattern.svg` | Transparent orange fluid contours |
 | `manrope-latin-wght-normal.woff2` | Manrope variable webfont |
 | `dm-sans-latin-wght-normal.woff2` | DM Sans variable webfont |
-| `caveat-latin-wght-normal.woff2` | Caveat variable cursive webfont |
 | `tokens.json`, `exports.json` | Palette/type tokens and raster export manifest |
 
 The favicon uses the same orange vector mark. Presentation SVGs depend on the

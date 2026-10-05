@@ -1,4 +1,4 @@
-/** Reage / Warm character. Transparent orange vector masters and brand layouts. */
+/** Reage / Precision workspace. Transparent orange vector masters and layouts. */
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
@@ -36,42 +36,41 @@ export async function generateBrandAssets(root) {
     'reage-logo-inverse.svg': svg('0 0 216 64', 'reage — cream lockup', lockup('lockup-inverse', true)),
     'reage-pattern.svg': svg('0 0 240 240', 'reage — warm fluid contours', `<g fill="none" stroke="${c.orange}" stroke-width=".7" opacity=".22"><path d="M-30 55C45-10 72 125 160 48S235 32 272 65M-30 63C45-2 72 133 160 56S235 40 272 73M-30 175C45 110 72 245 160 168S235 152 272 185M-30 183C45 118 72 253 160 176S235 160 272 193"/></g>`),
   }
-  assets['reage-social-card.svg'] = svg('0 0 1200 630', 'reage — Your PDFs. A little more you.', `
+  assets['reage-social-card.svg'] = svg('0 0 1200 630', 'reage — Your PDFs. Precisely edited.', `
     <path d="M0 0H1200V630H0Z" fill="${c.cream}"/>
     <ellipse cx="1010" cy="302" rx="286" ry="339" fill="${c.apricot}"/>
     ${symbol('social-brand', 47, 28, 75)}${word(138, 50, 137)}
-    ${text(66, 191, 12, 'A CLEAR SPACE FOR YOUR NEXT IDEA', c.slate, 'DM Sans', 550, 2)}
+    ${text(66, 191, 12, 'PRECISE EDITS. ORIGINAL CHARACTER.', c.slate, 'DM Sans', 550, 2)}
     ${text(61, 291, 80, 'Your PDFs.', c.ink, 'Manrope', 650, -4)}
-    ${text(60, 395, 100, 'A little more you.', c.orange, 'Caveat', 500, -1)}
-    <path d="M78 410Q310 430 590 405" fill="none" stroke="${c.amber}" stroke-width="4" stroke-linecap="round"/>
+    ${text(63, 385, 65, 'Precisely edited.', c.orange, 'Manrope', 650, -2)}
     ${text(66, 471, 20, 'Edit the page. Keep its character.', c.slate)}
     ${text(66, 569, 11, 'LOCAL FIRST   /   FONT AWARE   /   OPEN SOURCE', c.slate, 'DM Sans', 550, 1.3)}
     <circle cx="970" cy="292" r="190" fill="none" stroke="#EFC6A9"/>
     ${symbol('social-fluid', 755, 100, 390)}
-    ${text(848, 539, 34, 'Made for your words.', '#AB6748', 'Caveat', 500)}`)
+    ${text(854, 539, 16, 'PRECISION. OPEN SOURCE.', c.slate, 'DM Sans', 550, 1)}`)
 
   const swatches = [['Ember', c.orange, c.white], ['Apricot', c.apricot, c.ink], ['Cream', c.cream, c.ink], ['Espresso', c.ink, c.white], ['Sage', c.sage, c.ink], ['Rose', c.rose, c.ink]]
-  assets['reage-brand-board.svg'] = svg('0 0 1600 1120', 'reage — Warm character identity system', `
+  assets['reage-brand-board.svg'] = svg('0 0 1600 1120', 'reage — Precision workspace identity system', `
     <path d="M0 0H1600V1120H0Z" fill="${c.cream}"/>
-    ${text(64, 65, 13, 'reage / VISUAL IDENTITY', c.slate, 'DM Sans', 550, 2)}${text(1280, 65, 13, 'WARM CHARACTER — 04', c.slate)}
+    ${text(64, 65, 13, 'reage / VISUAL IDENTITY', c.slate, 'DM Sans', 550, 2)}${text(1240, 65, 13, 'PRECISION WORKSPACE — 05', c.slate)}
     <rect x="64" y="103" width="920" height="311" rx="22" fill="${c.apricot}"/>
     ${symbol('board-lockup', 94, 120, 112)}${word(218, 150, 160)}
     ${text(112, 297, 46, 'Edit the page.', c.ink, 'Manrope', 650, -1.5)}
-    ${text(109, 368, 67, 'Keep its character.', c.orange, 'Caveat', 500, -.5)}
+    ${text(111, 368, 48, 'Keep its character.', c.orange, 'Manrope', 650, -1.5)}
     <path d="M679 270C758 189 807 368 940 252M679 280C758 199 807 378 940 262" fill="none" stroke="#D28C61" stroke-width="1.2" opacity=".55"/>
     <rect x="1008" y="103" width="528" height="311" rx="22" fill="${c.white}" stroke="${c.line}"/>
     ${text(1048, 148, 12, 'THE ORANGE r. / TRANSPARENT VECTOR', c.slate, 'DM Sans', 500, 1.2)}${symbol('board-primary', 1140, 147, 265)}
     ${text(64, 465, 13, '01 / A LITTLE WARMTH. A LOT OF CHARACTER.', c.slate, 'DM Sans', 550, 1.2)}
     ${swatches.map(([name, color, ink], index) => `<rect x="${64 + 248 * index}" y="489" width="232" height="155" rx="14" fill="${color}" stroke="${c.line}"/>${text(86 + 248 * index, 590, 18, name, ink, 'DM Sans', 500)}${text(86 + 248 * index, 620, 12, color, ink)}`).join('')}
-    ${text(64, 706, 13, '02 / CLEAR WORDS. A HANDWRITTEN TOUCH.', c.slate, 'DM Sans', 550, 1.2)}${text(924, 706, 13, '03 / EVERY DETAIL, CONSIDERED', c.slate, 'DM Sans', 550, 1.2)}
+    ${text(64, 706, 13, '02 / CLEAR TYPE. PRECISE CONTROLS.', c.slate, 'DM Sans', 550, 1.2)}${text(924, 706, 13, '03 / EVERY DETAIL, CONSIDERED', c.slate, 'DM Sans', 550, 1.2)}
     <rect x="64" y="734" width="808" height="299" rx="18" fill="${c.white}" stroke="${c.line}"/><rect x="900" y="734" width="636" height="299" rx="18" fill="${c.white}" stroke="${c.line}"/>
     ${text(96, 777, 11, 'MANROPE / DM SANS — HEADINGS &amp; INTERFACE', c.slate, 'DM Sans', 500, .5)}${text(93, 832, 43, 'A clear space to create.', c.ink, 'Manrope', 600, -1.6)}
-    ${text(96, 883, 11, 'CAVEAT — A LITTLE MORE YOU', c.slate, 'DM Sans', 500, .5)}${text(91, 950, 60, 'Good things start with a small edit.', c.orange, 'Caveat', 500, -.4)}
+    ${text(96, 883, 11, 'DM SANS — BODY, LABELS &amp; CONTROLS', c.slate, 'DM Sans', 500, .5)}${text(96, 943, 31, 'Edit with confidence. Export with clarity.', c.orange, 'DM Sans', 550, -.6)}
     ${text(96, 997, 15, 'Warm surfaces. Useful details. Room for your own character.', c.slate)}
     <rect x="933" y="768" width="156" height="158" rx="15" fill="${c.ink}"/>${symbol('board-inverse', 949, 783, 124, true)}
     ${text(1118, 799, 22, 'One letter. One dot.', c.ink, 'Manrope', 600, -.5)}
     ${text(1118, 838, 16, 'Orange, apricot, and amber.', c.slate)}${text(1118, 870, 16, 'Vector masters + 4K PNGs.', c.slate)}${text(1118, 902, 16, 'Transparent at every size.', c.slate)}
-    ${text(937, 983, 29, 'A little more possibility.', c.orange, 'Caveat', 500)}
+    ${text(937, 983, 22, 'Built for precise PDF editing.', c.orange, 'Manrope', 600, -.5)}
     ${text(64, 1080, 12, 'WARM. THOUGHTFUL. OPEN BY NATURE.', c.slate, 'DM Sans', 500, 1)}${text(1360, 1080, 12, 'reage / 2026', c.slate)}`)
   for (const [name, content] of Object.entries(assets)) await writeFile(resolve(folder, name), content)
   await writeFile(resolve(root, 'public/favicon.svg'), svg('0 0 100 100', 'reage', mark('favicon')))

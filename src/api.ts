@@ -2,8 +2,21 @@ import type { Box, Change, FontEntry, FontProbe, OCRLine, PdfDocument, TextEdit 
 import { version as APP_VERSION } from '../package.json'
 import { IS_HOSTED } from './config'
 import { cloudRequest } from './cloud'
+import { RequestCache } from './requestCache'
 
 export { APP_VERSION }
+
+interface InlineStyle { name: string; ascent: number; web_font: boolean; subset: boolean; font_id?: string; font_data?: string | null }
+const renders = new RequestCache<Blob>(32 * 1024 * 1024, blob => blob.size)
+const inlineFonts = new RequestCache<InlineStyle>(12 * 1024 * 1024, style => (style.font_data?.length ?? 0) * 2 + 1024)
+const revisions = new Map<string, number>()
+let fontRevision = 0
+const namespace = (id: string) => `${id}:${revisions.get(id) ?? -1}:${fontRevision}:`
+function changedDocument(id: string) {
+  revisions.set(id, (revisions.get(id) ?? 0) + 1)
+  renders.clear(`${id}:`, false); inlineFonts.clear(`${id}:`, false)
+}
+function changedFonts() { fontRevision++; renders.clear('', false); inlineFonts.clear('', false) }
 
 let verifiedUntil = 0
 let checkingService: Promise<void> | null = null
@@ -65,8 +78,12 @@ export const api = {
     return (await request(`/documents/${id}/inline-font/${span}?font=${encodeURIComponent(font)}`)).arrayBuffer()
   },
   async original(id: string): Promise<Blob> { return (await request(`/documents/${id}/original`)).blob() },
-  async inlineStyle(id: string, span: string, font: string): Promise<{ name: string; ascent: number; web_font: boolean; subset: boolean }> {
-    return (await request(`/documents/${id}/inline-style/${span}?font=${encodeURIComponent(font)}`)).json()
+  async inlineStyle(id: string, span: string, font: string, signal?: AbortSignal): Promise<InlineStyle> {
+    const prefix = namespace(id)
+    const style = await inlineFonts.get(`${prefix}${span}:${font}`, async control =>
+      (await request(`/documents/${id}/inline-style/${span}?font=${encodeURIComponent(font)}&include_font=true`, { signal: control })).json(), signal)
+    if (style.font_id && prefix === namespace(id)) inlineFonts.seed(`${prefix}${span}:${style.font_id}`, style)
+    return style
   },
   async fonts(refresh = false): Promise<{ fonts: FontEntry[]; google_families: string[] }> {
     return (await request(`/fonts?refresh=${refresh}`)).json()
@@ -74,10 +91,14 @@ export const api = {
   async uploadFont(file: File): Promise<FontEntry> {
     const body = new FormData()
     body.append('file', file)
-    return (await request('/fonts/upload', { method: 'POST', body })).json()
+    const entry = await (await request('/fonts/upload', { method: 'POST', body })).json()
+    changedFonts()
+    return entry
   },
   async fetchFont(family: string, weight: number, italic: boolean): Promise<FontEntry> {
-    return (await request('/fonts/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ family, weight, italic }) })).json()
+    const entry = await (await request('/fonts/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ family, weight, italic }) })).json()
+    changedFonts()
+    return entry
   },
   async fontProbe(id: string, span_id: string, text: string, font: string, signal?: AbortSignal): Promise<FontProbe> {
     return (await request(`/documents/${id}/font-probe`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ span_id, text, font }), signal })).json()
@@ -89,21 +110,32 @@ export const api = {
     return (await request(`/ocr-data/${language}.traineddata`, { signal })).arrayBuffer()
   },
   async registerOCR(id: string, page: number, lines: OCRLine[], language: string, signal: AbortSignal): Promise<{ document: PdfDocument; recognized: number }> {
-    return (await request(`/documents/${id}/pages/${page}/ocr`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines, language }), signal })).json()
+    const result = await (await request(`/documents/${id}/pages/${page}/ocr`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines, language }), signal })).json()
+    changedDocument(id)
+    return result
   },
   async addRegion(id: string, page: number, bbox: Box): Promise<{ document: PdfDocument; span_id: string }> {
-    return (await request(`/documents/${id}/pages/${page}/regions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bbox }) })).json()
+    const result = await (await request(`/documents/${id}/pages/${page}/regions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bbox }) })).json()
+    changedDocument(id)
+    return result
   },
   async upload(file: File): Promise<PdfDocument> {
     const body = new FormData()
     body.append('file', file)
-    return (await request('/documents', { method: 'POST', body })).json()
+    const document = await (await request('/documents', { method: 'POST', body })).json()
+    revisions.set(document.id, 0)
+    return document
   },
   async demo(scanned = false): Promise<PdfDocument> {
-    return (await request(scanned ? '/demo/scanned' : '/demo', { method: 'POST' })).json()
+    const document = await (await request(scanned ? '/demo/scanned' : '/demo', { method: 'POST' })).json()
+    revisions.set(document.id, 0)
+    return document
   },
   async close(id: string) {
-    await request(`/documents/${id}`, { method: 'DELETE' })
+    revisions.delete(id)
+    renders.clear(`${id}:`); inlineFonts.clear(`${id}:`)
+    if (IS_HOSTED) await cloudRequest(`/documents/${id}`, { method: 'DELETE' })
+    else await request(`/documents/${id}`, { method: 'DELETE' })
   },
   async validate(id: string, edits: TextEdit[]): Promise<{ changes: Change[] }> {
     return (await request(`/documents/${id}/validate`, {
@@ -111,10 +143,11 @@ export const api = {
     })).json()
   },
   async render(id: string, page: number, edits: TextEdit[], scale: number, signal: AbortSignal): Promise<Blob> {
-    return (await request(`/documents/${id}/pages/${page}/render`, {
+    const body = JSON.stringify({ edits, scale })
+    return renders.get(`${namespace(id)}${page}:${body}`, async control => (await request(`/documents/${id}/pages/${page}/render`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ edits, scale }), signal,
-    })).blob()
+      body, signal: control,
+    })).blob(), signal)
   },
   async export(id: string, edits: TextEdit[]): Promise<Blob> {
     return (await request(`/documents/${id}/export`, {
