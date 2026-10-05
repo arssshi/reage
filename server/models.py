@@ -11,6 +11,30 @@ class TextEdit(BaseModel):
     color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     fit: bool = False
     background: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    bold: bool | None = None
+    italic: bool | None = None
+    underline: bool = False
+    strikeout: bool = False
+    opacity: float | None = Field(default=None, ge=0, le=1)
+    offset_x: float = Field(default=0, ge=-4000, le=4000)
+    offset_y: float = Field(default=0, ge=-4000, le=4000)
+    align: Literal["left", "center", "right"] = "left"
+    rotation: Literal[0, 90, 180, 270] | None = None
+
+    model_config = {"allow_inf_nan": False}
+
+
+class ExportPage(BaseModel):
+    page: int = Field(ge=0, lt=300)
+    rotation: Literal[0, 90, 180, 270] = 0
+
+
+class ExportRequest(BaseModel):
+    edits: list[TextEdit] = Field(default_factory=list, max_length=1000)
+    pages: list[ExportPage] | None = Field(default=None, min_length=1, max_length=300)
+    title: str | None = Field(default=None, max_length=250)
+    author: str | None = Field(default=None, max_length=250)
+    optimize: bool = False
 
 
 class EditRequest(BaseModel):
@@ -31,6 +55,8 @@ class FontProbeRequest(BaseModel):
     span_id: str
     text: str = Field(max_length=4000)
     font: str = "auto"
+    bold: bool | None = None
+    italic: bool | None = None
 
 
 class OCRLine(BaseModel):
@@ -47,3 +73,7 @@ class OCRRequest(BaseModel):
 
 class RegionRequest(BaseModel):
     bbox: tuple[float, float, float, float]
+
+
+class TextAddRequest(RegionRequest):
+    template: str | None = Field(default=None, max_length=80)

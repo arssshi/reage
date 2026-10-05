@@ -1,6 +1,6 @@
 import type { FontEntry } from './types'
 
-interface Recovery { page: number; kind: 'ocr' | 'region'; payload: Record<string, unknown> }
+interface Recovery { page: number; kind: 'ocr' | 'region' | 'text'; payload: Record<string, unknown> }
 interface Workspace { id: string; name: string; source: Blob; recovery: Recovery[] }
 const documents = new Map<string, Workspace>()
 const fonts = new Map<string, { file: Blob; entry: FontEntry }>()
@@ -40,6 +40,7 @@ export async function cloudRequest(path: string, options?: RequestInit): Promise
   const payload: Record<string, unknown> = typeof options?.body === 'string' ? JSON.parse(options.body) : {}
   if (url.searchParams.has('font')) payload.font = url.searchParams.get('font')
   if (url.searchParams.has('include_font')) payload.include_font = url.searchParams.get('include_font') === 'true'
+  for (const style of ['bold', 'italic']) if (url.searchParams.has(style)) payload[style] = url.searchParams.get(style) === 'true'
   const operation = {
     path, id: workspace?.id ?? '', name: workspace?.name ?? 'Document.pdf', payload,
     recovery: workspace?.recovery ?? [], compositions,
@@ -59,8 +60,8 @@ export async function cloudRequest(path: string, options?: RequestInit): Promise
   const mixes = response.headers.get('X-Reage-Font-Compositions')
   if (mixes) Object.assign(compositions, JSON.parse(mixes))
   if (opening && workspace) documents.set(workspace.id, workspace)
-  const mutation = path.match(/\/pages\/(\d+)\/(ocr|regions)$/)
-  if (mutation && workspace) workspace.recovery.push({ page: Number(mutation[1]), kind: mutation[2] === 'ocr' ? 'ocr' : 'region', payload })
+  const mutation = path.match(/\/pages\/(\d+)\/(ocr|regions|text)$/)
+  if (mutation && workspace) workspace.recovery.push({ page: Number(mutation[1]), kind: mutation[2] === 'regions' ? 'region' : mutation[2] as 'ocr' | 'text', payload })
   if (path === '/fonts/upload' || path === '/fonts/fetch') {
     const result = await response.json()
     const bytes = Uint8Array.from(atob(result.data), char => char.charCodeAt(0))

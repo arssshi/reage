@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from io import BytesIO
 import json
+from functools import lru_cache
 import os
 from pathlib import Path
 import re
@@ -236,8 +237,13 @@ class FontLibrary:
 
     def catalog(self, refresh: bool = False) -> list[dict]:
         self.index(refresh)
-        builtin = [{"id": f"builtin:{key}", "name": name, "family": name,
-                    "source": "bundled", "style": "", "weight": 400, "italic": False} for key, name in BUILTINS.items()]
+        builtin = []
+        for key, name in BUILTINS.items():
+            bold, italic = "Bold" in name, "Italic" in name or "Oblique" in name
+            family = re.sub(r" (Bold|Italic|Oblique)", "", name)
+            builtin.append({"id": f"builtin:{key}", "name": name, "family": family,
+                            "source": "bundled", "style": "Bold Italic" if bold and italic else "Bold" if bold else "Italic" if italic else "Regular",
+                            "weight": 700 if bold else 400, "italic": italic})
         entries = [{k: v for k, v in entry.items() if k not in ("path", "index", "aliases", "buffer")}
                    for entry in self.entries.values()]
         return builtin + sorted(entries, key=lambda entry: entry["name"].casefold())
@@ -346,7 +352,7 @@ class FontLibrary:
             raise ValueError("Enter a Google Fonts family name.")
         entries = None
         category = "ofl"
-        for category in ("ofl", "apache"):
+        for category in ("ofl", "apache", "ufl"):
             try:
                 entries = json.loads(download(f"https://api.github.com/repos/google/fonts/contents/{category}/{slug}", maximum=2_000_000))
                 break
@@ -371,8 +377,13 @@ class FontLibrary:
             raise ValueError("This Google Fonts family does not offer the requested italic style.")
         base = f"https://raw.githubusercontent.com/google/fonts/main/{category}/{slug}"
         buffer = download(f"{base}/{quote(chosen)}")
+        with TTFont(BytesIO(buffer), lazy=True) as font:
+            weight_axis = next((axis for axis in font["fvar"].axes if axis.axisTag == "wght"), None) if "fvar" in font else None
+            available = weight_axis.minValue <= weight <= weight_axis.maxValue if weight_axis else "OS/2" in font and font["OS/2"].usWeightClass == weight
+            if not available:
+                raise ValueError("This family does not offer the requested weight. Choose another style or upload the matching font file.")
         entry = self.register(buffer, kind="downloaded", weight=weight)
-        license_name = "OFL.txt" if category == "ofl" else "LICENSE.txt"
+        license_name = "OFL.txt" if category == "ofl" else "UFL.txt" if category == "ufl" else "LICENSE.txt"
         try:
             license_text = download(f"{base}/{license_name}", maximum=200_000)
             if self.memory_only:
@@ -446,14 +457,17 @@ def choose_font(span: dict, text: str, choice: str, original: FontSource | None)
         missing = original.missing(text)
         if missing:
             raise ValueError(f"This font does not contain these characters: {' '.join(missing[:12])}. Use Auto font recovery or supply the full font in Font Studio.")
-        return original, "Original embedded font" if original.buffer else "Original standard PDF font"
+        resolution = "Estimated recovery face" if span.get("source") in ("ocr", "region") else "Added text face" if span.get("source") == "added" else "Original embedded font" if original.buffer else "Original standard PDF font"
+        return original, resolution
     if choice != "auto":
         source = library.load(choice)
         if source.missing(text):
             raise ValueError(f"This font does not contain these characters: {' '.join(source.missing(text)[:12])}. Choose Auto or another font in Font Studio.")
-        return source, "Explicit replacement font"
+        keys = {family_key(name) for name in {span["font"], *(original.aliases if original else ())}}
+        matching = any(family_key(name) in keys for name in {source.font.name, *source.aliases})
+        return source, "Explicit matching face (font version may differ)" if matching else "Explicit substitute — different font family"
     if original and not contextual_subset and not original.missing(text):
-        return original, "Estimated scan font" if span.get("source") != "native" else "Original font preserved"
+        return original, "Estimated scan font" if span.get("source") in ("ocr", "region") else "Added text face" if span.get("source") == "added" else "Original font preserved"
     names = [span["font"], *sorted(original.aliases if original else ())]
     exact = {entry["id"]: entry for name in names for entry in library.exact_candidates(name, span["bold"], span["italic"])}
     for entry in exact.values():
@@ -514,3 +528,125 @@ def choose_font(span: dict, text: str, choice: str, original: FontSource | None)
         source = library.load(key)
         return source, "Automatic mixed-script font fallback — review appearance"
     raise ValueError("No available font covers all these characters. Upload a font with the required script in Font Studio.")
+
+
+def choose_styled_font(span: dict, text: str, choice: str, original: FontSource | None,
+                       document_fonts: dict[str, FontSource], bold: bool | None = None,
+                       italic: bool | None = None) -> tuple[FontSource, str]:
+    """Resolve real style faces. Never synthesize bold or slant PDF glyphs."""
+    try:
+        source, resolution = choose_font(span, text, choice, original)
+    except ValueError:
+        # A subset regular face may miss a new glyph that its embedded bold
+        # companion contains. Resolve the requested style before rejecting it.
+        if choice != "original" or not original or (bold is None and italic is None):
+            raise
+        different = (bold is not None and bold != bool(original.font.flags.get("bold"))) or (italic is not None and italic != bool(original.font.flags.get("italic")))
+        if not different:
+            raise
+        source, resolution = original, "Original font"
+    if bold is None and italic is None:
+        return source, resolution
+    target_bold = bool(source.font.flags.get("bold")) if bold is None else bold
+    target_italic = bool(source.font.flags.get("italic")) if italic is None else italic
+    matches_style = lambda face: bool(face.font.flags.get("bold")) == target_bold and bool(face.font.flags.get("italic")) == target_italic
+    if matches_style(source):
+        return source, resolution
+    names = {source.font.name, *source.aliases}
+    if choice == "auto":
+        names.update({span["font"], *(original.aliases if original else ())})
+    keys = {family_key(name) for name in names}
+    # Prefer an actual companion embedded in this very document.
+    for face in document_fonts.values():
+        if matches_style(face) and any(family_key(name) in keys for name in {face.font.name, *face.aliases}) and not face.missing(text):
+            return face, "Matching embedded style face" if face.buffer else "Matching standard PDF style face"
+    groups = (("helv", "hebo", "heit", "hebi"), ("tiro", "tibo", "tiit", "tibi"),
+              ("cour", "cobo", "coit", "cobi"), ("notos", "notosbo", "notosit", "notosbi"),
+              ("figo", "figbo", "figit", "figbi"))
+    index = int(target_bold) + 2 * int(target_italic)
+    code = source.base_name or source.id.removeprefix("builtin:")
+    if not code:
+        code = BASE_FONTS.get(normalize_font(source.font.name), "")
+    for group in groups:
+        if code in group or any(family_key(BUILTINS[key]) in keys for key in group):
+            face = library.load(f"builtin:{group[index]}")
+            if not face.missing(text):
+                return face, "Matching family style face"
+    for name in names:
+        for entry in library.exact_candidates(name, target_bold, target_italic):
+            if (entry["weight"] >= 600) != target_bold or entry["italic"] != target_italic:
+                continue
+            try:
+                face = library.load(entry["id"])
+            except ValueError:
+                continue
+            if not face.missing(text):
+                return face, "Matching full style face found locally (font version may differ)"
+    # Only Auto can move to a different family to satisfy the requested style.
+    if choice == "auto":
+        styled = {**span, "bold": target_bold, "italic": target_italic, "suggested_font": None}
+        face, detail = choose_font(styled, text, "auto", None)
+        if matches_style(face):
+            return face, detail
+    raise ValueError("This font's requested style face is not available. Use Auto recovery, download the matching bold/italic face, or upload it in Font Studio.")
+
+
+@lru_cache(maxsize=1)
+def google_catalog() -> list[str]:
+    """Public names only; downloaded on demand, never during document upload."""
+    raw = download("https://fonts.google.com/metadata/fonts", maximum=8_000_000).decode("utf-8")
+    start = raw.find("{")
+    parsed = json.loads(raw[start:])
+    names = sorted({entry["family"] for entry in parsed.get("familyMetadataList", []) if isinstance(entry.get("family"), str) and entry.get("isOpenSource", True)})
+    if not names:
+        raise ValueError("The open font catalog is temporarily unavailable. Enter an exact family name to download it.")
+    return names
+
+
+def download_suggestions(name: str) -> list[dict]:
+    key = family_key(name)
+    candidates = [{"family": family, "kind": "exact", "label": "Matching public family"}
+                  for family in GOOGLE_FAMILIES if family_key(family) == key]
+    compatible = COMPATIBLE.get(key)
+    if compatible and not any(item["family"] == compatible for item in candidates):
+        candidates.append({"family": compatible, "kind": "compatible", "label": "Metric-compatible alternative"})
+    return candidates
+
+
+def font_matches(span: dict, text: str, document_fonts: dict[str, FontSource]) -> dict:
+    original = document_fonts.get(span["font_key"])
+    names = {span["font"], *(original.aliases if original else ())}
+    if original:
+        names.add(original.font.name)
+    keys = {family_key(name) for name in names}
+    candidates = []
+    seen = set()
+    for face in document_fonts.values():
+        if id(face) in seen or face.missing(text) or not any(family_key(name) in keys for name in {face.font.name, *face.aliases}):
+            continue
+        seen.add(id(face))
+        candidates.append({"id": "original", "name": face.display_name, "family": face.font.name,
+                           "style": "Embedded companion" if face is not original else "Original face",
+                           "source": "embedded" if face.buffer else "standard", "weight": 700 if face.font.flags.get("bold") else 400,
+                           "italic": bool(face.font.flags.get("italic"))})
+    catalog = {entry["id"]: entry for entry in library.catalog()}
+    for name in sorted(names):
+        for entry in library.exact_candidates(name, span["bold"], span["italic"]):
+            try:
+                face = library.load(entry["id"])
+            except ValueError:
+                continue
+            if not face.missing(text) and entry["id"] not in seen:
+                seen.add(entry["id"])
+                candidates.append(catalog[entry["id"]])
+    downloads = {}
+    for name in sorted(names):
+        for suggestion in download_suggestions(name):
+            if span.get("source") in ("ocr", "region") and suggestion["kind"] == "exact":
+                suggestion = {**suggestion, "label": "Complete face for the estimated scan family"}
+            downloads[suggestion["family"]] = suggestion
+    clean = re.sub(r"^(?:[A-Za-z]{6}\+)+", "", original.font.name if original else span["font"])
+    clean = re.sub(r"(?:[- ]?(?:BoldItalic|BoldOblique|SemiBold|Regular|Italic|Oblique|Bold|Roman|PSMT|MT))+$", "", clean, flags=re.IGNORECASE)
+    return {"candidates": candidates, "downloads": list(downloads.values()), "search": clean,
+            "subset": bool(original and original.subset_characters is not None),
+            "missing": original.missing(text)[:30] if original else [], "original_name": span["font"]}

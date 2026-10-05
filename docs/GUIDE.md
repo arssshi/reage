@@ -9,13 +9,14 @@ FastAPI, and PyMuPDF. Open a PDF, select an existing text run, change its
 content, and export a searchable PDF using the original font whenever that
 font can be reused.
 
-Reage v0.6.1 provides three editing paths: native PDF text, recovered text from
-local OCR, and visual replacement regions. It includes font detection,
-embedded-font recovery, a local font library, and open-font downloads.
+Reage v0.7 provides four editing paths: native PDF text, new text objects, recovered
+text from local OCR, and visual replacement regions. It includes font detection,
+embedded-style recovery, a local font library, and an on-demand open-font catalog.
 
-The Document Studio update adds direct on-page typing, a redesigned workspace,
-an orange-and-cream light interface, a keyboard command palette, transaction-based find/replace,
-and an applied-edit fidelity report. See [IMPLEMENTATION.md](../IMPLEMENTATION.md)
+The Document Studio update adds contextual formatting, move/resize handles,
+alignment guides, rotated-page text editing, original comparison, and visual
+page arrangement at export. It also includes keyboard commands, atomic find/replace,
+and applied-edit fidelity reporting. See [IMPLEMENTATION.md](../IMPLEMENTATION.md)
 for architecture and [CAPABILITIES.md](../CAPABILITIES.md) for supported features and the roadmap.
 
 ## Online and local editions
@@ -74,6 +75,15 @@ process. Stop that process, restart the service, and reload the browser.
   OpenType without changing outlines or advances. Unsupported browser fonts use
   a labeled live-draft fallback. Finish typing to see the authoritative PDF render.
 - Edit font, size, color, fit, and content explicitly in the properties panel.
+- Format immediately with real bold/italic faces, underline, strikethrough,
+  frame alignment and text color. Type a size and press Enter or leave the field;
+  plus/minus controls adjust the size instantly.
+- Drag selected text's Move handle; resize from its lower-right corner. Snap to
+  page/text guides, constrain movement with Shift, or bypass snapping with Alt.
+- Add new text with a click or drawn box. Duplicate a run with its original font
+  program and current appearance. Added text does not redact source artwork.
+- Nudge text with arrow keys, adjust numeric offsets, quarter-turn rotation,
+  color presets and opacity, and undo/redo every committed text transformation.
 - Reuse embedded fonts and standard PDF fonts, preserving font size, RGB color,
   baseline, and opacity by default.
 - Validate glyph availability, including conservative embedded-subset checks.
@@ -83,13 +93,15 @@ process. Stop that process, restart the service, and reload the browser.
 - Repair supported TrueType/OpenType Unicode maps using PDF glyph mappings.
 - **Auto font recovery**: original → matching full local font → compatible or
   bundled substitute. Resolved fonts are displayed and pinned when applied.
-- **Font Studio**: inspect PDF font diagnostics, search installed fonts, upload
-  TTF/OTF files, or download open families from the Google Fonts repository.
+- **Font Studio**: inspect PDF fonts and missing glyphs, find reusable embedded
+  companions/full local faces, upload TTF/OTF, and download recommended matches or
+  families from the complete on-demand Google Fonts open catalog.
 - **Local OCR**: recognize image/outline pages, estimate font/size/color, review
   recognition confidence, and edit recovered lines. An image-only demo is included.
 - **English + Hindi OCR**, with combined native-fragment coverage checks on hybrid pages.
 - Localized image-pixel replacement preserves surrounding native text and artwork.
-- Edit 90°, 180°, and 270° text runs; zoom directly to tiny text selections.
+- Edit quarter-turned text runs and native text on rotated pages; zoom directly
+  to tiny text selections. Geometry uses the displayed page coordinate system.
 - **Replace region**: draw around an unrecognized area and replace its pixels
   with searchable text, even without OCR.
 - HarfBuzz-backed shaping for complex scripts using MuPDF Story, with logical
@@ -110,6 +122,10 @@ process. Stop that process, restart the service, and reload the browser.
 - **Commands** (Ctrl/⌘ K), a warm light interface, high-contrast preference
   support, and **Review edit fidelity** for applied fonts and reconstruction.
 - Download an edited copy. Your original file is never overwritten.
+- Toggle **Original** above the canvas to compare the untouched source.
+- Open the arrow beside **Export PDF** to reorder, duplicate, rotate, remove or
+  extract pages; choose a filename, title/author and optional font subsetting.
+  Arrangement has its own undo/redo and affects only the exported copy.
 - Locally bundled UI fonts and OCR runtime; no analytics or account. Public
   font/model assets are downloaded on demand and cached locally.
 - AGPL-3.0-or-later, with a source download built into the Help dialog.
@@ -219,14 +235,19 @@ and does not require editing the proxy configuration.
 3. Type directly on the page. Input stays responsive while the service validates
    the edit. Press **Enter** to finish and display the actual PDF render. Native
    browser selection, word/line shortcuts and IME work within one text run.
-4. For explicit typography changes, use **Text content** and the properties panel.
+4. Use the formatting bar for **Bold**, **Italic**, underline, strikethrough,
+   color, size and alignment. These controls validate and apply immediately.
+   Type size values fully, then press Enter or leave the field.
+   For advanced changes, use **Text content** and the properties panel.
    **Auto** tries to preserve the original font first and
    shows the chosen font below the selector. Choose **Original** for strict
    original-font-only editing, or open **Font Studio** for more options.
 5. Click **Apply changes** for properties-panel edits. Validation errors explain missing glyphs, collisions,
    shaping problems, or text that would leave the page.
 6. Use **Fit to original width** if a longer replacement should shrink to fit.
-7. Click **Export PDF** to download an edited copy.
+7. Finish typing to reveal **Move** and resize handles. Use **Move text** to select
+   without placing a typing caret. Changes are checked for page overflow and text collisions.
+8. Click **Export PDF** for a complete copy, or its arrow for page arrangement and options.
 
 From **Find text**, open **Find and replace** to preview selected replacements.
 Use **Commands → Review edit fidelity** to audit applied font choices. Interface
@@ -234,13 +255,52 @@ colors and fonts never recolor or restyle the PDF itself. **Focus mode** hides
 side panels; **Fit page** shows the complete page. On phones, expand **Text
 properties** when you want to adjust formatting.
 
+### Moving, resizing, and adding text
+
+- Press **Enter** to finish on-page typing. Drag **Move** above the selection or
+  use arrow keys. **Shift + arrows** moves 10 points instead of 1.
+- Alignment guides snap to nearby text edges/centers and page edges/centers.
+  Hold **Shift** while dragging to lock movement to one axis; hold **Alt** to ignore guides.
+- Drag the lower-right handle to change font size. Resizing disables fit-to-width
+  so the selected size is respected. A collision leaves the draft available for correction.
+- Alignment buttons align the replacement within the original text run's width;
+  they do not center the object on the entire page.
+- Choose **Add text** or press **T**. Click inside the page for a default box, or
+  draw a box. Type the text and press Enter. New text remains searchable and keeps
+  underlying images/vectors intact.
+- Use **Duplicate text** or **Ctrl/⌘ D** to make a font-preserving copy in free
+  space below the current run. Move it with its handle. If there is no free space,
+  use Add text elsewhere.
+- Use the trash control or **Delete** outside text inputs to remove the selected
+  run. Undo restores its text and appearance.
+
+### Organizing the exported copy
+
+Open **Export options** using the arrow beside Export PDF, or **Organize & export**
+in the Pages panel. Drag cards or use their arrow controls to reorder. Each card
+can be independently duplicated, rotated by 90°, or removed. Page arrangements
+have their own bounded undo/redo.
+
+Use **Current page**, **All pages**, or a range such as `1, 3-5`. Descending ranges
+such as `5-3` reverse a range; repeated page numbers create output copies. The
+workspace retains source page numbers. These settings affect the downloaded file
+and reset when you close the export dialog.
+
+When exporting selected pages, edits on omitted pages stay marked as ready to
+export. A complete export includes those edits and updates the saved-copy status.
+
+Choose a filename. Under **Document details & optimization**, optionally set title
+or author and subset embedded fonts. Font subsetting retains used glyphs to reduce
+file size, but a full font may be needed for later edits. Native text stays searchable.
+
 ### When a font is missing
 
 1. Keep the font selector on **Auto**. The resolver checks the embedded font,
    full matching fonts installed on this machine, metric-compatible cached
    alternatives, and bundled fonts with the required characters.
-2. Open **Font Studio → PDF diagnosis** to distinguish missing font programs
-   from embedded fonts and repaired character maps.
+2. Open **Font Studio → Recover this font** for the current selection. It checks
+   original glyph availability, matching embedded companions and full local faces,
+   and offers recommended complete open fonts. **PDF diagnosis** lists source fonts.
 3. Use **Upload TTF / OTF** when you have the original font. Font Studio also
    lists system fonts on Windows, macOS, and Linux (including Windows fonts
    when running under WSL).
@@ -296,7 +356,8 @@ vector stream; visual region replacement is not a security redaction tool.
 - macOS: `~/.cache/reage`
 - Override with the `REAGE_CACHE_DIR` environment variable.
 
-Font downloads read public files from `github.com/google/fonts`; OCR models
+Font downloads read public files from `github.com/google/fonts`; the open-family
+catalog reads public names from `fonts.google.com/metadata/fonts`. OCR models
 come from `github.com/tesseract-ocr/tessdata_fast`. **PDFs and page images are
 not sent to these providers.** Font downloads need internet access and may be
 subject to GitHub's request limits. Font uploads and installed fonts work
@@ -313,6 +374,13 @@ its in-memory documents. Reopening an exported PDF starts a new editing session.
 | Ctrl / ⌘ O | Open PDF |
 | Ctrl / ⌘ S | Export PDF |
 | Ctrl / ⌘ F | Find text |
+| Ctrl / ⌘ K | Command palette |
+| Ctrl / ⌘ B / I / U | Bold / italic / underline selected run |
+| Ctrl / ⌘ D | Duplicate selected text outside text fields |
+| E / V / T | Edit / move / add text outside text fields |
+| Arrows / Shift + arrows | Nudge selected text 1 / 10 pt |
+| Delete / Backspace | Delete selected run outside text fields |
+| Enter | Finish on-page typing or commit a size value |
 | Ctrl / ⌘ Z | Undo an applied edit outside text fields |
 | Ctrl / ⌘ Shift Z | Redo |
 | Ctrl / ⌘ Enter | Apply the current text edit |
@@ -328,7 +396,7 @@ provide the MuPDF engine. No database, object storage, secret key, or login is n
 
 `src/cloud.ts` carries all document state with each request, so another serverless
 instance or cold start can process the next operation. Font libraries are
-request-scoped, uploaded font IDs are content-based, and OCR/region registration
+request-scoped, uploaded font IDs are content-based, and OCR/region/new-text registration
 is replayed deterministically. No server-side document lookup exists in online mode.
 Public OCR model requests redirect to the Tesseract repository, avoiding function
 payload limits without sharing document content. Source and brand downloads remain available.
@@ -374,7 +442,7 @@ silently matched to lookalikes.
   formatting inside one run.
 - Scans and text converted to vector outlines use OCR or visual region recovery,
   with the solid-background tradeoffs described above.
-- Page-level rotation, arbitrary-angle text, vertical writing modes, invisible
+- Arbitrary-angle text, vertical writing modes, invisible
   or outlined text, and optional-layer text are not directly reconstructed by
   the native path. Use OCR or region recovery
   where suitable. Skewed handwriting, low-resolution scans, unusual scripts,
@@ -392,8 +460,8 @@ silently matched to lookalikes.
 - Collision detection covers extracted text, not every graphical object.
 - Password-protected PDFs must be unlocked first. Existing digital signatures
   are invalidated by editing; detected signature fields trigger a notice.
-- No page rearrangement, form editor, annotation authoring, signing, persistent
-  project files, or collaborative editing yet.
+- Page arrangement works at export; in-workspace merge/blank insertion, form
+  editing, annotation authoring, signing, saved project files and collaboration remain pending.
 - Limits: 30 MB per upload, 300 pages, 40,000 text runs, 1,000 edits per export,
   4,000-point page dimensions, and a 16-megapixel render ceiling. In-memory
   source storage is limited to 12 documents / 180 MB; decoded PDFs and font
@@ -413,6 +481,9 @@ src/
   components/Welcome.tsx      Branded landing page and original product artwork
   components/BrandLogo.tsx    Shared application logo lockup
   components/Inspector.tsx    Text, typography, layout controls
+  components/FormattingBar.tsx Immediate styles and buffered numeric size input
+  components/TextTransform.tsx Move/resize gestures and snapping guides
+  components/ExportDialog.tsx  Visual page arrangement and export options
   components/HelpDialog.tsx   Shortcuts, limitations, license, source download
   components/FontStudio.tsx   Font diagnostics, local library, uploads/downloads
   components/OcrDialog.tsx    Local OCR worker, language selection, progress
@@ -475,6 +546,13 @@ browser undo/redo, search, export/reimport, and mobile editing. Browser tests
 also run real Tesseract OCR on the image-only demo and reimport its edited PDF.
 That test requires the English model to be cached or internet access for its
 first download.
+
+Studio regressions cover real style faces, move/resize/nudge, opacity/decorations,
+native editing and direction-preserving duplication on quarter-turned pages,
+new/duplicate text without background damage, busy-handle selection, drawing during
+delayed renders, partial-export unsaved state, page order and independent duplicate
+rotations, metadata, links and font recovery. The same browser workflows run in
+stateless hosted mode.
 
 The on-page tests cover selected-text replacement, Backspace, IME lifecycle,
 delayed validation, immediate export and error recovery. PDF.js independently

@@ -20,10 +20,11 @@ from .app import APP_VERSION, download_brand_kit, download_source, engine_lock, 
 from .assets import OCR_LANGUAGES
 from .demo import create_demo, create_scanned_demo
 from .engine import EditError, export_pdf, inspect_document, prepare_edits, public_changes, render_page
-from .fonts import COMPATIBLE, GOOGLE_FAMILIES, choose_font, family_key, isolated_library
+from .fonts import COMPATIBLE, GOOGLE_FAMILIES, choose_styled_font, family_key, font_matches, google_catalog, isolated_library
 from .inline import browser_font, wrap_cff
-from .models import EditRequest, FontFetchRequest, FontProbeRequest, OCRRequest, RegionRequest, RenderRequest
-from .recovery import font_sample, register_ocr, register_region
+from .models import EditRequest, ExportRequest, FontFetchRequest, FontProbeRequest, OCRRequest, RegionRequest, RenderRequest, TextAddRequest
+from .recovery import font_sample, register_ocr, register_region, register_text
+from .shaping import shape_line
 
 MAX_DOCUMENT = 3 * 1024 * 1024
 MAX_REQUEST = 4_000_000
@@ -34,7 +35,7 @@ app = FastAPI(title="Reage hosted PDF editor", version=APP_VERSION, docs_url=Non
 
 class Recovery(BaseModel):
     page: int = Field(ge=0, lt=MAX_PAGES)
-    kind: Literal["ocr", "region"]
+    kind: Literal["ocr", "region", "text"]
     payload: dict
 
 
@@ -111,6 +112,11 @@ def bounded_response(value, media_type=None):
 
 
 def execute(operation: Operation, source: bytes | None, fonts: list[bytes], uploaded_font: bytes | None):
+    if operation.path == "/fonts/catalog":
+        try:
+            return bounded_response({"families": google_catalog(), "provider": "Google Fonts"})
+        except (ValueError, OSError) as exc:
+            raise HTTPException(422, str(exc)) from exc
     # Serialize MuPDF and discard caches containing original-font bytes or OCR
     # words before releasing the lock to the next visitor's request.
     with engine_lock, isolated_library() as library:
@@ -150,8 +156,11 @@ def execute(operation: Operation, source: bytes | None, fonts: list[bytes], uplo
                     raise HTTPException(422, "Recovery page not found.")
                 if action.kind == "ocr":
                     register_ocr(data, action.page, OCRRequest.model_validate(action.payload))
-                else:
+                elif action.kind == "region":
                     register_region(data, action.page, RegionRequest.model_validate(action.payload).bbox)
+                else:
+                    request = TextAddRequest.model_validate(action.payload)
+                    register_text(data, action.page, request.bbox, request.template)
             value = dispatch(operation, data)
             response = value if isinstance(value, Response) else bounded_response(value)
             if len(library.compositions) > 16:
@@ -165,6 +174,7 @@ def execute(operation: Operation, source: bytes | None, fonts: list[bytes], uplo
         finally:
             font_sample.cache_clear()
             wrap_cff.cache_clear()
+            shape_line.cache_clear()
 
 
 def dispatch(operation, data):
@@ -178,7 +188,10 @@ def dispatch(operation, data):
     if route == "validate":
         return {"changes": public_changes(prepare_edits(data, EditRequest.model_validate(payload).edits))}
     if route == "export":
-        return bounded_response(export_pdf(data, EditRequest.model_validate(payload).edits), "application/pdf")
+        request = ExportRequest.model_validate(payload)
+        if request.pages and len(request.pages) > MAX_PAGES:
+            raise HTTPException(413, "The online editor exports up to 50 pages. Run locally for longer documents.")
+        return bounded_response(export_pdf(data, request.edits, request), "application/pdf")
     if route == "original":
         return bounded_response(data.source, "application/pdf")
     if route == "font-probe":
@@ -186,25 +199,31 @@ def dispatch(operation, data):
         span = data.spans.get(request.span_id)
         if not span:
             raise HTTPException(404, "Text selection not found.")
-        font, resolution = choose_font(span, request.text, request.font, data.fonts.get(span["font_key"]))
+        font, resolution = choose_styled_font(span, request.text, request.font, data.fonts.get(span["font_key"]), data.fonts, request.bold, request.italic)
         return {"name": font.display_name, "resolution": resolution, "id": font.id, "source": font.kind,
                 "original_name": span["font"], "suggested_download": COMPATIBLE.get(family_key(span["font"]))}
+    if route == "font-matches":
+        request = FontProbeRequest.model_validate(payload)
+        span = data.spans.get(request.span_id)
+        if not span:
+            raise HTTPException(404, "Text selection not found.")
+        return font_matches(span, request.text, data.fonts)
     inline = re.fullmatch(r"(inline-style|inline-font)/([A-Za-z0-9-]+)", route)
     if inline:
         span = data.spans.get(inline[2])
         if not span:
             raise HTTPException(404, "Text selection not found.")
         choice = payload.get("font", "auto")
-        font, resolution = choose_font(span, (span["text"] or " ") if choice == "auto" else "", choice, data.fonts.get(span["font_key"]))
+        font, resolution = choose_styled_font(span, (span["text"] or " ") if choice == "auto" else "", choice, data.fonts.get(span["font_key"]), data.fonts, payload.get("bold"), payload.get("italic"))
         buffer = browser_font(font.buffer or font.font.buffer)
         usable = buffer is not None and len(buffer) <= (MAX_RESPONSE - 10_000) * 3 // 4
         if inline[1] == "inline-font":
             return bounded_response(buffer, "font/otf") if usable else Response(status_code=204)
         return {"name": font.display_name, "resolution": resolution, "web_font": usable,
                 "subset": span.get("subset", False), "ascent": font.font.ascender / (font.font.ascender - font.font.descender),
-                "font_id": font.id or "original",
+                 "font_id": font.id or "original", "bold": bool(font.font.flags.get("bold")), "italic": bool(font.font.flags.get("italic")),
                 **({"font_data": b64encode(buffer).decode() if usable else None} if payload.get("include_font") else {})}
-    page_route = re.fullmatch(r"pages/(\d+)/(render|ocr|regions)", route)
+    page_route = re.fullmatch(r"pages/(\d+)/(render|ocr|regions|text)", route)
     if page_route:
         page = int(page_route[1])
         if not 0 <= page < len(data.pages):
@@ -215,7 +234,11 @@ def dispatch(operation, data):
         if page_route[2] == "ocr":
             count = register_ocr(data, page, OCRRequest.model_validate(payload))
             return {"document": manifest(operation.id, data), "recognized": count}
-        span = register_region(data, page, RegionRequest.model_validate(payload).bbox)
+        if page_route[2] == "text":
+            request = TextAddRequest.model_validate(payload)
+            span = register_text(data, page, request.bbox, request.template)
+        else:
+            span = register_region(data, page, RegionRequest.model_validate(payload).bbox)
         return {"document": manifest(operation.id, data), "span_id": span["id"]}
     raise HTTPException(404, "Unknown document operation.")
 

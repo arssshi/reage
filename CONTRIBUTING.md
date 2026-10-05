@@ -40,7 +40,7 @@ Playwright's Chromium installation and its OS libraries are required.
 
 1. A larger real-world PDF corpus, font-encoding diagnostics, and visual diffs.
 2. Content-stream-aware replacement that retains tracking, clipping, and z-order.
-3. Broader mixed-script shaping fixtures and native rotated-text transforms.
+3. Broader mixed-script shaping fixtures and arbitrary-angle/clipped text transforms.
 4. Multirun paragraph editing and explicit reflow controls.
 5. Better OCR layout reconstruction and textured-background inpainting.
 6. Persistent local project files and recovery of unsaved sessions.

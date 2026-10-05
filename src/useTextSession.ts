@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api, messageOf } from './api'
 import type { Snapshot, TextEdit, TextSpan } from './types'
 
-export const originalEdit = (span: TextSpan): TextEdit => ({ span_id: span.id, text: span.text, font: 'auto', size: null, color: null, fit: span.source !== 'native', background: null })
+export const originalEdit = (span: TextSpan): TextEdit => ({ span_id: span.id, text: span.text, font: 'auto', size: null, color: null, fit: ['ocr', 'region'].includes(span.source), background: null, bold: null, italic: null, underline: false, strikeout: false, opacity: null, offset_x: 0, offset_y: 0, align: 'left', rotation: null })
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 interface State {
   history: Snapshot[]; cursor: number; selected: TextSpan | null; draft: TextEdit | null
@@ -71,6 +71,9 @@ export function useTextSession(documentId: string, notify: (message: string) => 
     }
     const edits = snapshotOf(s).edits.filter(edit => edit.span_id !== draft.span_id)
     const isOriginal = draft.text === selected.text && ['original', 'auto'].includes(draft.font) && (draft.size === null || draft.size === selected.size) && (draft.color === null || draft.color === selected.color) && !draft.background
+      && (draft.bold == null || draft.bold === selected.bold) && (draft.italic == null || draft.italic === selected.italic)
+      && !draft.underline && !draft.strikeout && (draft.opacity == null || draft.opacity === selected.opacity)
+      && !(draft.offset_x || draft.offset_y) && (!draft.align || draft.align === 'left') && (draft.rotation == null || draft.rotation === (selected.rotation ?? 0))
     if (!isOriginal) edits.push(draft)
     return commit(edits, isOriginal ? originalEdit(selected) : draft, s.automatic)
   }
@@ -91,6 +94,13 @@ export function useTextSession(documentId: string, notify: (message: string) => 
     if (current.current.automatic) return flush()
     if (pending.current) await pending.current
     return !dirtyOf(current.current) || window.confirm('Discard the text changes you have not applied yet?')
+  }
+  async function transform(patch: Partial<TextEdit>): Promise<boolean> {
+    if (pending.current) await pending.current
+    const s = current.current
+    if (!s.selected?.editable || !s.draft || s.composing) return false
+    setDraft({ ...s.draft, ...patch }, true)
+    return flush()
   }
   async function select(selected: TextSpan | null): Promise<boolean> {
     const request = ++selectionRequest.current
@@ -126,6 +136,6 @@ export function useTextSession(documentId: string, notify: (message: string) => 
     const timer = window.setTimeout(() => void applyRef.current(), 500)
     return () => window.clearTimeout(timer)
   }, [state])
-  return { ...state, snapshot: snapshotOf(state), dirty: dirtyOf(state), setDraft, setError, composition, commit, applyDraft, flush, wait, settle, select, moveHistory, restore,
+  return { ...state, snapshot: snapshotOf(state), dirty: dirtyOf(state), setDraft, setError, composition, commit, applyDraft, flush, wait, settle, select, moveHistory, restore, transform,
     latest: () => ({ snapshot: snapshotOf(current.current), draft: current.current.draft, dirty: dirtyOf(current.current), automatic: current.current.automatic }) }
 }

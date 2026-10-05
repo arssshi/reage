@@ -120,14 +120,19 @@ def test_unsupported_input_is_rejected_atomically(sample, text):
         export_pdf(sample, [TextEdit(span_id=span["id"], text=text)])
 
 
-def test_rotated_page_is_view_only():
+def test_rotated_page_text_is_editable_in_rendered_coordinates():
     with fitz.open() as doc:
         page = doc.new_page()
         page.insert_text((40, 70), "Rotated")
         page.set_rotation(90)
         data = inspect_document(doc.tobytes(), "rotated.pdf")
     assert data.pages[0]["width"] == 842
-    assert not select(data, "Rotated")["editable"]
+    span = select(data, "Rotated")
+    assert span["editable"] and span["rotation"] == 270
+    assert span["origin"] == [772, 40]
+    output = export_pdf(data, [TextEdit(span_id=span["id"], text="Updated")])
+    updated = select(inspect_document(output, "updated.pdf"), "Updated")
+    assert updated["origin"] == span["origin"] and updated["rotation"] == 270
 
 
 @pytest.mark.parametrize("rotation", [90, 180, 270])

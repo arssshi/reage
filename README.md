@@ -22,17 +22,59 @@ Click text, type on the page, and export a searchable copy. Your original stays 
 
 | What you can do | What makes it useful |
 | --- | --- |
-| **Edit directly on the page** | Native text selection, typing, undo/redo, and font, size, and color controls. |
-| **Keep the original character** | Reuse supported embedded fonts; inspect and choose clearly labeled alternatives. |
+| **Edit directly on the page** | Native text selection, typing, undo/redo, and a compact contextual formatting bar. |
+| **Style with confidence** | Real bold/italic faces, underline, strikethrough, alignment, color presets, and opacity. |
+| **Make room for your ideas** | Add and duplicate text; drag to move, resize, snap to guides, or nudge with the keyboard. |
+| **Keep the original character** | Reuse embedded fonts and style companions; find complete faces in the local library or the open-font catalog. |
 | **Recover scanned text** | Local OCR, including English + Hindi, with reviewable text and region replacement. |
 | **Find and replace** | Preview validated changes across selected text runs, then apply them in one undoable step. |
 | **Check before exporting** | PDF-engine previews, font diagnostics, and an applied-edit fidelity report. |
-| **Work comfortably** | A professional orange workspace, keyboard commands, focus mode, and responsive layouts. |
+| **Arrange your final copy** | Reorder, rotate, duplicate, remove, and extract pages; set filename/metadata and optionally subset fonts. |
+| **Work comfortably** | A quiet document-first workspace, original/edited comparison, keyboard commands, and responsive controls. |
 
-**Current focus:** precise text editing. Reage is early-stage; paragraph reflow,
-page organization, form editing, and digital signing are still on the roadmap.
-OCR estimates typography and uses solid-color backgrounds; visual region
-replacement is not secure redaction. See the [full capability matrix](CAPABILITIES.md).
+## What's new in v0.7.0 — Document Studio
+
+The 0.7 release turns Reage into a focused document studio for precise,
+single-run PDF text editing:
+
+- **Format in context:** real bold and italic faces, underline, strikethrough,
+  alignment, color presets, opacity, buffered font-size editing, and keyboard
+  shortcuts without leaving the page.
+- **Move and make space:** drag text, resize it, snap to page or text guides,
+  lock movement with **Shift**, bypass snapping with **Alt**, or nudge with the
+  arrow keys.
+- **Add and duplicate text:** create searchable native text boxes anywhere and
+  duplicate a run while retaining its original font, baseline relationship,
+  direction, and appearance. Source artwork is left intact.
+- **Edit rotated documents:** native text on 90°, 180°, and 270° page layouts
+  remains selectable, editable, movable, and searchable after export.
+- **Recover fonts with confidence:** Font Studio checks glyph coverage, embedded
+  companion faces, local fonts, bundled families, and a complete open-font catalog.
+  Substitutes and estimated scan fonts are identified clearly.
+- **Arrange the final copy:** reorder, duplicate, rotate, remove, or extract
+  pages; use ranges; set filename, title, and author; and optionally subset
+  fonts. Partial exports keep edits on omitted pages marked as unsaved.
+- **Stay oriented:** compare the original and edited document, use the
+  document-first workspace on mobile, and keep the same validated PDF engine
+  behind preview and export.
+
+The release was verified with 100 backend tests, 38 local browser workflows,
+25 stateless hosted workflows, startup/cache checks, real font downloads, OCR,
+export/reopen checks, and a production build.
+
+Reage edits one text run at a time. Paragraph reflow, mixed-style text inside a
+run, form editing, and digital signing remain on the roadmap. OCR estimates
+typography and uses solid-color backgrounds; visual region replacement is not
+secure redaction. See the [full capability matrix](CAPABILITIES.md).
+
+### A quick way to make a change
+
+1. Open a PDF and click text to type in place.
+2. Use the formatting bar for bold, italic, size, color, and alignment.
+3. Press **Enter** to finish; drag the **Move** handle or the lower-right resize handle.
+4. Use **Add text** for a new text object, or **Font Studio → Recover this font** for matching faces.
+5. Compare with **Original**, then export directly or use the arrow beside
+   **Export PDF** to arrange the output pages and set document details.
 
 ## Try it online
 

@@ -3,6 +3,7 @@ import { AlertCircle, LoaderCircle, RotateCw } from 'lucide-react'
 import { api, messageOf } from '../api'
 import type { Box, Change, PdfPage, TextEdit, TextSpan } from '../types'
 import InlineTextEditor from './InlineTextEditor'
+import TextTransform from './TextTransform'
 
 interface Props {
   documentId: string
@@ -24,13 +25,28 @@ interface Props {
   onInlineClose?: () => void
   regionMode?: boolean
   onRegion?: (box: Box) => void
+  addMode?: boolean
+  moveMode?: boolean
+  selectionDraft?: TextEdit | null
+  transformDisabled?: boolean
+  onTransform?: (patch: Partial<TextEdit>) => void
 }
 
 interface Surface { span: TextSpan; draft: TextEdit; caret: number | null }
 interface Frame { url: string; key: string; hidden: string | null; changes: Change[] }
 
-export default function PdfPreview({ documentId, page, edits, changes = [], scale, thumbnail = false, selected, showBounds, interactive, onSelect, regionMode, onRegion, inlineDraft, inlineCaret, inlineError = '', onInlineChange, onInlineCommit, onComposition, onInlineClose }: Props) {
+export default function PdfPreview({ documentId, page, edits, changes = [], scale, thumbnail = false, selected, showBounds, interactive, onSelect, regionMode, onRegion, addMode, moveMode, selectionDraft, transformDisabled = false, onTransform, inlineDraft, inlineCaret, inlineError = '', onInlineChange, onInlineCommit, onComposition, onInlineClose }: Props) {
   const container = useRef<HTMLDivElement>(null)
+  const suppressClick = useRef(false)
+  const gestureTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(gestureTimer.current), [])
+  function canvasGesture(active: boolean) {
+    window.clearTimeout(gestureTimer.current)
+    suppressClick.current = true
+    // Handles can move and drawn regions register asynchronously. Consume the
+    // compatibility click before it can clear the canvas selection.
+    if (!active) gestureTimer.current = window.setTimeout(() => { suppressClick.current = false }, 0)
+  }
   const [visible, setVisible] = useState(!thumbnail)
   const [frame, setFrame] = useState<Frame | null>(null)
   const [surfaces, setSurfaces] = useState<Surface[]>([])
@@ -132,22 +148,30 @@ export default function PdfPreview({ documentId, page, edits, changes = [], scal
   return (
     <div ref={container} className={`pdf-page ${thumbnail ? 'thumbnail-page' : ''} ${loading ? 'rendering' : ''}`}
       style={{ width: page.width * scale, height: page.height * scale, cursor: regionMode ? 'crosshair' : undefined, touchAction: regionMode ? 'none' : undefined }} aria-busy={loading}
+      onClickCapture={event => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation() } }}
       onPointerDown={event => {
-        if (!regionMode || thumbnail || loading || event.button !== 0) return
+        // A decoded frame remains correctly scaled while its sharper zoom
+        // replacement loads. Keep drawing available on that visible page.
+        if (!regionMode || thumbnail || !image || error || event.button !== 0) return
         event.preventDefault(); event.stopPropagation()
         event.currentTarget.setPointerCapture(event.pointerId)
+        canvasGesture(true)
         const start = point(event.clientX, event.clientY)
         setDrawing({ start, end: start })
       }}
       onPointerMove={event => { if (drawing) setDrawing({ ...drawing, end: point(event.clientX, event.clientY) }) }}
-      onPointerCancel={() => setDrawing(null)}
+      onPointerCancel={() => { if (drawing) canvasGesture(false); setDrawing(null) }}
       onPointerUp={event => {
         if (!drawing) return
-        event.stopPropagation()
+        event.preventDefault(); event.stopPropagation()
+        canvasGesture(false)
         const end = point(event.clientX, event.clientY)
         const box: Box = [Math.min(drawing.start[0], end[0]), Math.min(drawing.start[1], end[1]), Math.max(drawing.start[0], end[0]), Math.max(drawing.start[1], end[1])]
         setDrawing(null)
-        if (box[2] - box[0] >= 2 && box[3] - box[1] >= 2) onRegion?.(box)
+        if (addMode && box[2] - box[0] < 2 && box[3] - box[1] < 2) {
+          const x = Math.min(end[0], page.width - 40), y = Math.min(end[1], page.height - 28)
+          onRegion?.([x, y, Math.min(page.width, x + 180), y + 28])
+        } else if (box[2] - box[0] >= 2 && box[3] - box[1] >= 2) onRegion?.(box)
       }}>
       {image && <img src={image} alt={thumbnail ? '' : `PDF page ${page.index + 1}`} draggable={false} />}
       {!image && !error && <div className="page-loading"><LoaderCircle size={thumbnail ? 18 : 28} className="spin" />{!thumbnail && <span>Rendering your page…</span>}</div>}
@@ -155,6 +179,7 @@ export default function PdfPreview({ documentId, page, edits, changes = [], scal
       {error && <div className="page-error"><AlertCircle size={22} />{!thumbnail && <><p>{error}</p><button className="button secondary small" onClick={() => setRetry(v => v + 1)}><RotateCw size={14} /> Try again</button></>}{thumbnail && <span>Preview unavailable</span>}</div>}
       {drawing && <div className="drawn-region" style={{ left: Math.min(drawing.start[0], drawing.end[0]) * scale, top: Math.min(drawing.start[1], drawing.end[1]) * scale, width: Math.abs(drawing.start[0] - drawing.end[0]) * scale, height: Math.abs(drawing.start[1] - drawing.end[1]) * scale }} />}
       {!thumbnail && !error && page.spans.map(span => {
+        if (span.source === 'added' && !changeMap.get(span.id)?.text && selected !== span.id) return null
         const change = changeMap.get(span.id)
          const bbox = change?.text === '' ? span.bbox : change?.bbox ?? span.bbox
          const text = change?.text ?? span.text
@@ -172,6 +197,7 @@ export default function PdfPreview({ documentId, page, edits, changes = [], scal
           onClick={event => {
             event.stopPropagation()
             const box = event.currentTarget.getBoundingClientRect()
+            if (moveMode) { onSelect?.(span); return }
             if (event.detail === 0) { onSelect?.(span, text.length); return }
             const angle = span.rotation || 0
             const fraction = angle === 90 ? (box.bottom - event.clientY) / box.height : angle === 270 ? (event.clientY - box.top) / box.height : angle === 180 ? (box.right - event.clientX) / box.width : (event.clientX - box.left) / box.width
@@ -197,9 +223,13 @@ export default function PdfPreview({ documentId, page, edits, changes = [], scal
           {selected === span.id && <><i className="selection-handle tl" /><i className="selection-handle tr" /><i className="selection-handle bl" /><i className="selection-handle br" /></>}
         </button>
       })}
+      {!thumbnail && interactive && selected && !activeSurface && selectionDraft && onTransform && (() => {
+        const span = page.spans.find(span => span.id === selected && span.editable)
+        return span ? <TextTransform page={page} span={span} edit={selectionDraft} appliedEdit={edits.find(edit => edit.span_id === span.id)} change={changeMap.get(span.id)} changes={changes} scale={scale} disabled={transformDisabled} onTransform={onTransform} onGesture={canvasGesture} /> : null
+      })()}
       {!thumbnail && displayedSurfaces.map(surface => {
         const active = surface.span.id === activeSpan?.id
-        const verified = changes.find(change => change.span_id === surface.span.id && change.text === surface.draft.text)
+        const verified = JSON.stringify(edits.find(edit => edit.span_id === surface.span.id)) === JSON.stringify(surface.draft) ? changes.find(change => change.span_id === surface.span.id) : undefined
         const pendingBackground = frame?.hidden !== surface.span.id
         const painted = frame?.changes.find(change => change.span_id === surface.span.id)?.bbox ?? surface.span.bbox
         const box = surface.span.bbox
@@ -207,7 +237,7 @@ export default function PdfPreview({ documentId, page, edits, changes = [], scal
         const right = Math.max(box[2], painted[2]), bottom = Math.max(box[3], painted[3])
         return <div key={surface.span.id} className="inline-surface-layer">
           {pendingBackground && <div className="inline-source-cover" aria-hidden="true" style={{ left: left * scale - 2, top: top * scale - 2, width: (right - left) * scale + 4, height: (bottom - top) * scale + 4 }} />}
-          <InlineTextEditor documentId={documentId} span={surface.span} draft={surface.draft} fittedSize={surface.draft.fit ? verified?.size : undefined} scale={scale} caret={surface.caret} active={active} pendingBackground={pendingBackground} error={active ? inlineError : ''} onChange={text => { if (active) onInlineChange?.(text) }} onCommit={() => { if (active) onInlineCommit?.() }} onComposition={value => { if (active) onComposition?.(value) }} onClose={() => { if (active) onInlineClose?.() }} />
+          <InlineTextEditor documentId={documentId} span={surface.span} draft={surface.draft} fittedSize={surface.draft.fit ? verified?.size : undefined} renderedChange={verified} scale={scale} caret={surface.caret} active={active} pendingBackground={pendingBackground} error={active ? inlineError : ''} onChange={text => { if (active) onInlineChange?.(text) }} onCommit={() => { if (active) onInlineCommit?.() }} onComposition={value => { if (active) onComposition?.(value) }} onClose={() => { if (active) onInlineClose?.() }} />
         </div>
       })}
     </div>

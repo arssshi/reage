@@ -1,0 +1,312 @@
+import { expect, test } from './fixtures'
+import type { Page, APIRequestContext, Download } from '@playwright/test'
+
+async function sample(page: Page) {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Try a sample PDF', exact: true }).click()
+  await expect(page.getByLabel('PDF canvas').locator('.pdf-page')).toHaveAttribute('aria-busy', 'false')
+}
+async function exportedDocument(download: Download, request: APIRequestContext) {
+  const chunks: Buffer[] = []
+  for await (const chunk of (await download.createReadStream())!) chunks.push(Buffer.from(chunk))
+  const hosted = (await (await request.get('/api/health')).json()).mode === 'hosted'
+  const file = { name: 'studio-output.pdf', mimeType: 'application/pdf', buffer: Buffer.concat(chunks) }
+  const response = await request.post(hosted ? '/api/process' : '/api/documents', { multipart: hosted ? { document: file, operation: JSON.stringify({ path: '/documents', id: 'studio-verification', name: file.name }) } : { file } })
+  expect(response.ok()).toBeTruthy()
+  const document = await response.json()
+  if (!hosted) await request.delete(`/api/documents/${document.id}`)
+  return document
+}
+
+test('multi-digit size input remains editable until Enter commits it', async ({ page, request }) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Edit text: Good spaces.', exact: true }).click()
+  const size = page.getByLabel('Text size', { exact: true })
+  await size.focus()
+  await size.press('ControlOrMeta+a')
+  await size.pressSequentially('24', { delay: 80 })
+  await expect(size).toHaveValue('24')
+  await expect(size).toBeEnabled()
+  await expect(page.getByLabel('Font size', { exact: true })).toHaveValue('49')
+  await size.press('Enter')
+  await expect(page.getByLabel('Font size', { exact: true })).toHaveValue('24')
+  const promise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export PDF', exact: true }).click()
+  const result = await exportedDocument(await promise, request)
+  expect(result.pages[0].spans.find((span: { text: string }) => span.text === 'Good spaces.').size).toBe(24)
+})
+
+test('a rejected text collision can be corrected with another drag', async ({ page }) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Edit text: Good spaces.', exact: true }).click()
+  await page.getByLabel('Edit text on page', { exact: true }).press('Enter')
+  const handle = page.getByRole('button', { name: 'Drag to move text', exact: true })
+  async function drag(dx: number, dy: number) {
+    await expect(handle).toBeEnabled()
+    const box = (await handle.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy, { steps: 5 })
+    await page.mouse.up()
+  }
+  await drag(0, 60)
+  await expect(page.locator('.inspector-error')).toContainText('overlap nearby text')
+  await drag(25, -18)
+  await expect(page.locator('.inspector-error')).toHaveCount(0)
+  await expect(handle).toBeEnabled()
+  await expect(page.getByLabel('Vertical text offset', { exact: true })).toHaveValue(/^-/)
+  await expect(page.getByLabel('PDF canvas').locator('.pdf-page')).toHaveAttribute('aria-busy', 'false')
+})
+
+test('dragging a busy handle preserves selection and never adds an unvalidated move', async ({ page }) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Edit text: Good spaces.', exact: true }).click()
+  await page.getByLabel('Edit text on page', { exact: true }).press('Enter')
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/api/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path.endsWith('/validate') || path === '/api/process' && request.postData()?.includes('/validate"')) await gate
+    await route.continue()
+  })
+  try {
+    await page.getByRole('button', { name: 'Bold', exact: true }).click()
+    const handle = page.getByRole('button', { name: 'Drag to move text', exact: true })
+    await expect(handle).toBeDisabled()
+    const box = (await handle.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2 - 10, { steps: 4 })
+    await page.mouse.up()
+    await expect(page.getByLabel('Text content', { exact: true })).toHaveValue('Good spaces.')
+    release()
+    await expect(handle).toBeEnabled()
+    await expect(page.getByLabel('Horizontal text offset', { exact: true })).toHaveValue('0')
+    await expect(page.getByLabel('Vertical text offset', { exact: true })).toHaveValue('0')
+  } finally { release(); await page.unrouteAll({ behavior: 'wait' }) }
+})
+
+test('manual regions remain drawable on the visible page during a delayed zoom render', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: /Try a scanned PDF/ }).click()
+  const surface = page.getByLabel('PDF canvas').locator('.pdf-page')
+  await expect(surface).toHaveAttribute('aria-busy', 'false')
+  const tool = page.getByRole('button', { name: 'Replace region', exact: true })
+  await tool.click()
+  await expect(tool).toHaveAttribute('aria-pressed', 'true')
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  let waiting = false
+  await page.route('**/api/**', async route => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (path.endsWith('/render') || path === '/api/process' && request.postData()?.includes('/render"')) { waiting = true; await gate }
+    await route.continue()
+  })
+  try {
+    await page.getByLabel('Zoom', { exact: true }).selectOption({ value: '75' })
+    await expect.poll(() => waiting).toBe(true)
+    await expect(surface).toHaveAttribute('aria-busy', 'true')
+    await expect(page.getByAltText('PDF page 1', { exact: true })).toBeVisible()
+    const box = (await surface.boundingBox())!
+    await page.mouse.move(box.x + box.width * .07, box.y + box.height * .69)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width * .91, box.y + box.height * .84, { steps: 8 })
+    await page.mouse.up()
+    await expect(page.getByLabel('Text content', { exact: true })).toBeVisible()
+  } finally { release(); await page.unrouteAll({ behavior: 'wait' }) }
+  await page.getByLabel('Text content', { exact: true }).fill('A line drawn while zooming.')
+  await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Edit text: A line drawn while zooming.', exact: true })).toBeVisible()
+  await expect(surface).toHaveAttribute('aria-busy', 'false')
+})
+
+test('rotated pages expose native editable text and preserve displayed direction on export', async ({ page, request }, testInfo) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Export options', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Organize and export PDF' })
+  await dialog.getByRole('button', { name: 'Current page', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Rotate output page 1', exact: true }).click()
+  const promise = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Download PDF', exact: true }).click()
+  const download = await promise
+  const chunks: Buffer[] = []
+  for await (const chunk of (await download.createReadStream())!) chunks.push(Buffer.from(chunk))
+  await page.getByLabel('Choose PDF file', { exact: true }).setInputFiles({ name: 'rotated-source.pdf', mimeType: 'application/pdf', buffer: Buffer.concat(chunks) })
+  await page.getByRole('button', { name: 'Edit text: Good spaces.', exact: true }).click()
+  await expect(page.getByLabel('Edit text on page', { exact: true })).toBeFocused()
+  await page.getByLabel('Text content', { exact: true }).fill('Rotated.')
+  await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+  const rotated = page.getByRole('button', { name: 'Edit text: Rotated.', exact: true })
+  await expect(rotated).toBeVisible()
+  await expect(page.getByLabel('PDF canvas').locator('.pdf-page')).toHaveAttribute('aria-busy', 'false')
+  await page.getByRole('button', { name: 'Duplicate text', exact: true }).click()
+  await expect(rotated).toHaveCount(2)
+  await expect(page.getByLabel('PDF canvas').locator('.pdf-page')).toHaveAttribute('aria-busy', 'false')
+  await page.screenshot({ path: testInfo.outputPath('studio-rotated-page.png'), animations: 'disabled' })
+  const exported = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export PDF', exact: true }).click()
+  const result = await exportedDocument(await exported, request)
+  expect(result.pages[0].rotation).toBe(90)
+  // PDF extraction can join adjacent same-face copies into one text run.
+  const spans = result.pages[0].spans.filter((span: { text: string }) => span.text.includes('Rotated.'))
+  expect(spans.reduce((count: number, span: { text: string }) => count + span.text.split('Rotated.').length - 1, 0)).toBe(2)
+  expect(spans.every((span: { rotation: number; editable: boolean }) => span.rotation === 270 && span.editable)).toBe(true)
+  expect(result.pages[0].spans.some((span: { text: string }) => span.text === 'Good spaces.')).toBe(false)
+})
+
+test('real formatting, drag movement, resize, nudge, and opacity survive export', async ({ page, request }, testInfo) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Edit text: Good spaces.', exact: true }).click()
+  const bar = page.getByRole('toolbar', { name: 'Text formatting' })
+  for (const name of ['Bold', 'Italic', 'Underline', 'Strikethrough']) {
+    await bar.getByRole('button', { name, exact: true }).click()
+    await expect(bar.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByLabel('PDF canvas').locator('.pdf-page')).toHaveAttribute('aria-busy', 'false')
+  }
+  const move = page.getByRole('button', { name: 'Drag to move text', exact: true })
+  await expect(move).toBeEnabled()
+  const box = (await move.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 25, box.y + box.height / 2 - 18, { steps: 5 })
+  await page.mouse.up()
+  await expect(page.getByLabel('Horizontal text offset')).not.toHaveValue('0')
+  await expect(page.getByRole('button', { name: 'Drag to resize text', exact: true })).toBeEnabled()
+  await expect(page.getByLabel('PDF canvas').locator('.pdf-page')).toHaveAttribute('aria-busy', 'false')
+  const resize = (await page.getByRole('button', { name: 'Drag to resize text', exact: true }).boundingBox())!
+  await page.mouse.move(resize.x + resize.width / 2, resize.y + resize.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(resize.x + resize.width / 2 - 25, resize.y + resize.height / 2 - 5, { steps: 4 })
+  await page.mouse.up()
+  await expect(page.getByLabel('Text size', { exact: true })).not.toHaveValue('49')
+  await expect(page.getByRole('button', { name: 'Move selected text', exact: true })).toBeEnabled()
+  await expect(page.getByLabel('PDF canvas').locator('.pdf-page')).toHaveAttribute('aria-busy', 'false')
+  await page.getByRole('button', { name: 'Move selected text', exact: true }).click()
+  await page.keyboard.press('Shift+ArrowRight')
+  await expect(page.getByRole('button', { name: 'Apply changes', exact: true })).toBeDisabled()
+  await page.getByLabel('Text opacity').focus()
+  await page.getByLabel('Text opacity').press('ArrowLeft')
+  await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+  await expect(page.getByLabel('PDF canvas').locator('.pdf-page')).toHaveAttribute('aria-busy', 'false')
+  await page.screenshot({ path: testInfo.outputPath('studio-formatting.png') })
+  const promise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export PDF', exact: true }).click()
+  const result = await exportedDocument(await promise, request)
+  const headline = result.pages[0].spans.find((span: { text: string }) => span.text === 'Good spaces.')
+  expect(headline.bold).toBe(true)
+  expect(headline.italic).toBe(true)
+  expect(headline.size).toBeLessThan(49)
+  expect(headline.origin[0]).toBeGreaterThan(55)
+  expect(headline.origin[1]).toBeLessThan(171)
+  expect(headline.opacity).toBeCloseTo(.99, 2)
+})
+
+test('new text and font-preserving duplicates are undoable and searchable', async ({ page, request }, testInfo) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Add text', exact: true }).click()
+  const box = (await page.getByLabel('PDF canvas').locator('.pdf-page').boundingBox())!
+  await page.mouse.click(box.x + box.width * .31, box.y + box.height * .53)
+  const input = page.getByRole('textbox', { name: 'Edit text on page', exact: true })
+  await expect(input).toBeFocused()
+  await input.fill('A new studio note')
+  await input.press('Enter')
+  const added = page.getByRole('button', { name: 'Edit text: A new studio note', exact: true })
+  await expect(added).toHaveCount(1)
+  await page.getByRole('button', { name: 'Duplicate text', exact: true }).click()
+  await expect(added).toHaveCount(2)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(added).toHaveCount(1)
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await expect(added).toHaveCount(2)
+  await page.getByRole('button', { name: 'Compare original', exact: true }).click()
+  await expect(added).toHaveCount(0)
+  await page.getByRole('button', { name: 'Compare original', exact: true }).click()
+  await expect(added).toHaveCount(2)
+  await page.screenshot({ path: testInfo.outputPath('studio-added-text.png') })
+  const promise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export PDF', exact: true }).click()
+  const result = await exportedDocument(await promise, request)
+  expect(result.pages[0].spans.filter((span: { text: string }) => span.text === 'A new studio note')).toHaveLength(2)
+  expect(result.pages[0].spans.some((span: { text: string }) => span.text === 'Good spaces.')).toBe(true)
+})
+
+test('page arrangement supports reorder, duplicate, rotate, ranges, and independent output copies', async ({ page, request }, testInfo) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Export options', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Organize and export PDF' })
+  await dialog.getByRole('button', { name: 'Move output page 2 earlier', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Duplicate output page 1', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Rotate output page 1', exact: true }).click()
+  await expect(dialog.getByLabel('Output page 1, source page 2')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Undo page arrangement', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Redo page arrangement', exact: true }).click()
+  await dialog.getByLabel('File name', { exact: true }).fill('my-studio.pdf')
+  await page.screenshot({ path: testInfo.outputPath('studio-export.png'), animations: 'disabled' })
+  const promise = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Download PDF', exact: true }).click()
+  const download = await promise
+  expect(download.suggestedFilename()).toBe('my-studio.pdf')
+  const result = await exportedDocument(download, request)
+  expect(result.pages).toHaveLength(3)
+  expect(result.pages.map((p: { rotation: number }) => p.rotation)).toEqual([90, 0, 0])
+  expect(result.pages[0].spans.some((span: { text: string }) => span.text === 'Small details.')).toBe(true)
+  expect(result.pages[1].spans.some((span: { text: string }) => span.text === 'Small details.')).toBe(true)
+  expect(result.pages[2].spans.some((span: { text: string }) => span.text === 'Good spaces.')).toBe(true)
+  await page.getByRole('button', { name: 'Export options', exact: true }).click()
+  await dialog.getByLabel('Page numbers / ranges', { exact: true }).fill('0, 99')
+  await dialog.getByRole('button', { name: 'Use range', exact: true }).click()
+  await expect(dialog.getByRole('alert')).toContainText('between 1 and 2')
+  await dialog.getByLabel('Page numbers / ranges', { exact: true }).fill('2-1')
+  await dialog.getByRole('button', { name: 'Use range', exact: true }).click()
+  await expect(dialog.getByLabel('Output page 1, source page 2')).toBeVisible()
+})
+
+test('extracting one page retains unsaved edits on omitted pages', async ({ page }) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Edit text: Good spaces.', exact: true }).click()
+  await page.getByLabel('Text content', { exact: true }).fill('Great places.')
+  await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Edit text: Great places.', exact: true })).toBeVisible()
+  await page.getByLabel('Current page', { exact: true }).selectOption({ value: '1' })
+  await expect(page.getByLabel('Current page', { exact: true })).toHaveValue('1')
+  await expect(page.getByAltText('PDF page 2', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Export options', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Organize and export PDF' })
+  await dialog.getByRole('button', { name: 'Current page', exact: true }).click()
+  const download = page.waitForEvent('download')
+  await dialog.getByRole('button', { name: 'Download PDF', exact: true }).click()
+  await download
+  await expect(page.locator('.session-status')).toContainText('ready to export')
+  await expect(page.getByRole('status')).toContainText('Other page edits still need exporting')
+  page.once('dialog', async prompt => { expect(prompt.message()).toContain('Export your changes'); await prompt.dismiss() })
+  await page.getByRole('button', { name: 'Reage home', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Export PDF', exact: true })).toBeVisible()
+})
+
+test('font recovery explains original glyphs and finds available faces', async ({ page }) => {
+  await sample(page)
+  await page.getByRole('button', { name: 'Edit text: Good spaces.', exact: true }).click()
+  await page.locator('.recovery-toolbar').getByRole('button', { name: 'Font Studio', exact: true }).click()
+  const studio = page.getByRole('dialog', { name: 'Font Studio' })
+  await studio.getByRole('button', { name: 'Recover this font', exact: true }).click()
+  await expect(studio.getByText('Available matching faces', { exact: true })).toBeVisible()
+  await expect(studio.locator('.font-list-item').first()).toContainText('Times-Roman')
+  await studio.getByRole('button', { name: 'Use automatic font recovery', exact: true }).click()
+  await expect(studio).toHaveCount(0)
+  await expect(page.getByLabel('Font family')).toHaveValue('auto')
+})
+
+test('mobile formatting stays reachable without horizontal document overflow', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await sample(page)
+  await page.getByRole('button', { name: 'Edit text: Good spaces.', exact: true }).click()
+  const bar = page.getByRole('toolbar', { name: 'Text formatting' })
+  await bar.getByRole('button', { name: 'Bold', exact: true }).click()
+  await expect(bar.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await bar.getByRole('button', { name: 'Move selected text', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Drag to move text', exact: true })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('studio-mobile.png') })
+})

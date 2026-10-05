@@ -16,7 +16,8 @@ check, not a replacement for deterministic MuPDF comparisons.
 
 Critical limitations: inferred rather than semantic paragraphs; partial Type3
 support; no general PDF content-stream rewriting for arbitrary clipping/blending;
-no general page/object operations; volatile sessions. Shared engine access is serialized.
+no general object/content-stream operations; volatile sessions. Page arrangement is
+supported at export. Shared engine access is serialized.
 
 ## Decisions
 
@@ -39,9 +40,9 @@ no general page/object operations; volatile sessions. Shared engine access is se
 Native edits preserve reusable font programs and untouched page content for
 supported cases. Full matching fonts can differ in version; substitutes are
 labeled. OCR/region changes are reconstructed and use a solid background.
-Added text and annotations are separate commands. Searchable OCR changes the
-hidden text layer, not the visible scanned letters. Redaction is a dedicated
-sanitized export operation, not an ordinary visual region edit.
+Added text is a separate synthetic run and never triggers source redaction.
+Annotation creation, hidden searchable OCR layers, and sanitized redaction remain
+future command types, separate from ordinary visual region editing.
 
 Original bytes, command restore points, local drafts, and exports have distinct
 lifetimes. Unsupported source structures must produce an actionable limitation.
@@ -145,3 +146,48 @@ Deterministic regressions cover delayed render handoffs, original-text masking,
 late blur responses, continued properties input, IME/history, rapid selection,
 network retry, independent exported-text extraction, and request reuse. These
 check the supported workflows; broader PDF compatibility remains in the ledger.
+
+## v0.7 Document Studio
+
+`TextEdit` now models nullable real-face bold/italic selection, underline/strikeout,
+opacity, text-frame alignment, PDF-point offsets and quarter-turn rotation.
+`choose_styled_font` prefers embedded companions, full matching faces and bundled
+family variants. Auto may use an explicitly labeled substitute; strict choices
+reject absent styles rather than synthesizing glyph weight/slant. Font Studio
+checks usable glyph coverage and offers a public open-family catalog and recommended
+downloads. The simple CFF browser adapter produces deterministic font bytes and
+retains style metadata.
+
+Native source geometry is retained in unrotated PDF coordinates for text removal.
+Public selection geometry and baselines use rendered page coordinates. Replacement
+origins are transformed back before insertion, so supported native text on 90°,
+180° and 270° pages can be edited and moved. Collision/overflow checks use the
+displayed frame. Decorations are native vector lines with the chosen opacity.
+
+New text uses `source: added` records registered without changing source bytes.
+Duplicated runs can share the original font program through a template anchor,
+retain its relative baseline, and preserve the current displayed text direction.
+Added objects participate in the same validated snapshots and undo/redo, but do
+not redact graphics or become active selection/collision targets when absent from
+the current snapshot. Hosted requests replay these registrations deterministically,
+and private shaping/font caches are cleared at the request boundary.
+
+The document-first UI adds a contextual formatting bar, move/resize handles,
+page/text snapping guides, directional movement constraints, nudging, original
+comparison, color presets and advanced position/opacity controls. Size typing
+commits on blur/Enter so multi-digit values remain editable. Handle gestures consume
+their compatibility click to prevent unintended deselection during slower renders,
+including when a handle is busy validating an edit. Region drawing uses the visible,
+decoded page during background zoom renders and consumes its gesture's click too.
+
+`ExportRequest` describes an independent output page sequence, extra quarter-turns,
+metadata and optional font subsetting. Repeated pages are deep-copied before selection
+so their rotations are independent. `ExportDialog` provides visual arrangement,
+range extraction, duplicate/remove/rotate and local arrangement undo/redo. These
+settings affect the downloaded copy; workspace anchors retain source page numbers.
+Partial exports keep omitted-page edits marked as unsaved.
+An unchanged export with no options still returns the exact original bytes.
+
+Regression fixtures verify true face selection, opacity/position/rotation, artwork
+preservation, new/duplicated searchable text, page independence and links. Browser
+workflows exercise the same features in both local and stateless hosted modes.

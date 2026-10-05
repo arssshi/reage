@@ -1,4 +1,4 @@
-import type { Box, Change, FontEntry, FontProbe, OCRLine, PdfDocument, TextEdit } from './types'
+import type { Box, Change, ExportOptions, FontEntry, FontMatches, FontProbe, OCRLine, PdfDocument, TextEdit } from './types'
 import { version as APP_VERSION } from '../package.json'
 import { IS_HOSTED } from './config'
 import { cloudRequest } from './cloud'
@@ -6,7 +6,7 @@ import { RequestCache } from './requestCache'
 
 export { APP_VERSION }
 
-interface InlineStyle { name: string; ascent: number; web_font: boolean; subset: boolean; font_id?: string; font_data?: string | null }
+interface InlineStyle { name: string; ascent: number; web_font: boolean; subset: boolean; bold: boolean; italic: boolean; font_id?: string; font_data?: string | null }
 const renders = new RequestCache<Blob>(32 * 1024 * 1024, blob => blob.size)
 const inlineFonts = new RequestCache<InlineStyle>(12 * 1024 * 1024, style => (style.font_data?.length ?? 0) * 2 + 1024)
 const revisions = new Map<string, number>()
@@ -74,19 +74,30 @@ async function request(path: string, options?: RequestInit) {
 
 export const api = {
   checkService,
-  async inlineFont(id: string, span: string, font: string): Promise<ArrayBuffer> {
-    return (await request(`/documents/${id}/inline-font/${span}?font=${encodeURIComponent(font)}`)).arrayBuffer()
+  async inlineFont(id: string, span: string, font: string, bold?: boolean | null, italic?: boolean | null): Promise<ArrayBuffer> {
+    const params = new URLSearchParams({ font })
+    if (bold != null) params.set('bold', String(bold))
+    if (italic != null) params.set('italic', String(italic))
+    return (await request(`/documents/${id}/inline-font/${span}?${params}`)).arrayBuffer()
   },
   async original(id: string): Promise<Blob> { return (await request(`/documents/${id}/original`)).blob() },
-  async inlineStyle(id: string, span: string, font: string, signal?: AbortSignal): Promise<InlineStyle> {
+  async inlineStyle(id: string, span: string, font: string, signal?: AbortSignal, bold?: boolean | null, italic?: boolean | null): Promise<InlineStyle> {
     const prefix = namespace(id)
-    const style = await inlineFonts.get(`${prefix}${span}:${font}`, async control =>
-      (await request(`/documents/${id}/inline-style/${span}?font=${encodeURIComponent(font)}&include_font=true`, { signal: control })).json(), signal)
-    if (style.font_id && prefix === namespace(id)) inlineFonts.seed(`${prefix}${span}:${style.font_id}`, style)
+    const styles = `${bold ?? ''}:${italic ?? ''}`
+    const params = new URLSearchParams({ font, include_font: 'true' })
+    if (bold != null) params.set('bold', String(bold))
+    if (italic != null) params.set('italic', String(italic))
+    const style = await inlineFonts.get(`${prefix}${span}:${font}:${styles}`, async control =>
+      (await request(`/documents/${id}/inline-style/${span}?${params}`, { signal: control })).json(), signal)
+    if (style.font_id && prefix === namespace(id)) inlineFonts.seed(`${prefix}${span}:${style.font_id}:${styles}`, style)
     return style
   },
   async fonts(refresh = false): Promise<{ fonts: FontEntry[]; google_families: string[] }> {
     return (await request(`/fonts?refresh=${refresh}`)).json()
+  },
+  async fontCatalog(): Promise<{ families: string[] }> { return (await request('/fonts/catalog')).json() },
+  async fontMatches(id: string, span_id: string, text: string, signal?: AbortSignal): Promise<FontMatches> {
+    return (await request(`/documents/${id}/font-matches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ span_id, text }), signal })).json()
   },
   async uploadFont(file: File): Promise<FontEntry> {
     const body = new FormData()
@@ -100,8 +111,8 @@ export const api = {
     changedFonts()
     return entry
   },
-  async fontProbe(id: string, span_id: string, text: string, font: string, signal?: AbortSignal): Promise<FontProbe> {
-    return (await request(`/documents/${id}/font-probe`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ span_id, text, font }), signal })).json()
+  async fontProbe(id: string, span_id: string, text: string, font: string, signal?: AbortSignal, bold?: boolean | null, italic?: boolean | null): Promise<FontProbe> {
+    return (await request(`/documents/${id}/font-probe`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ span_id, text, font, bold, italic }), signal })).json()
   },
   async ocrLanguages(): Promise<{ languages: { code: string; name: string }[] }> {
     return (await request('/ocr/languages')).json()
@@ -116,6 +127,11 @@ export const api = {
   },
   async addRegion(id: string, page: number, bbox: Box): Promise<{ document: PdfDocument; span_id: string }> {
     const result = await (await request(`/documents/${id}/pages/${page}/regions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bbox }) })).json()
+    changedDocument(id)
+    return result
+  },
+  async addText(id: string, page: number, bbox: Box, template?: string): Promise<{ document: PdfDocument; span_id: string }> {
+    const result = await (await request(`/documents/${id}/pages/${page}/text`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bbox, template }) })).json()
     changedDocument(id)
     return result
   },
@@ -149,9 +165,9 @@ export const api = {
       body, signal: control,
     })).blob(), signal)
   },
-  async export(id: string, edits: TextEdit[]): Promise<Blob> {
+  async export(id: string, edits: TextEdit[], options: ExportOptions = {}): Promise<Blob> {
     return (await request(`/documents/${id}/export`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ edits }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...options, edits }),
     })).blob()
   },
 }

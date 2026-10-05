@@ -118,7 +118,7 @@ def register_ocr(data: DocumentData, page_number: int, request: OCRRequest) -> i
                 continue
             # Preserve existing native edits, and make repeated recognition
             # idempotent rather than stacking duplicate OCR regions.
-            covered = [box & fitz.Rect(span["bbox"]) for span in page_info["spans"] if span["editable"]]
+            covered = [box & fitz.Rect(span["bbox"]) for span in page_info["spans"] if span["editable"] and span.get("source") != "added"]
             if union_area([rect for rect in covered if not rect.is_empty]) > box.get_area() * 0.55:
                 continue
             crop = crop_region(image, box, scale)
@@ -163,7 +163,7 @@ def register_region(data: DocumentData, page_number: int, coordinates) -> dict:
     if len(data.spans) >= 40000:
         raise EditError("This document has reached the text-run limit.")
     # Avoid drawing over an already editable selection accidentally.
-    if any(span["editable"] and fitz.Rect(span["bbox"]).intersects(box) for span in page_info["spans"]):
+    if any(span["editable"] and span.get("source") != "added" and fitz.Rect(span["bbox"]).intersects(box) for span in page_info["spans"]):
         raise EditError("This region overlaps editable text. Select that text directly, or draw a region around an unrecognized area.")
     with fitz.open(stream=data.source, filetype="pdf") as doc:
         image, scale = page_image(doc[page_number])
@@ -177,6 +177,37 @@ def register_region(data: DocumentData, page_number: int, coordinates) -> dict:
             "background": background, "suggested_font": "builtin:helv", "estimated_font": "Helvetica"}
     data.spans[sid] = span
     data.fonts[sid] = library.load("builtin:helv")
+    page_info["spans"].append(span)
+    data.revision += 1
+    return span
+
+
+def register_text(data: DocumentData, page_number: int, coordinates, template: str | None = None) -> dict:
+    """A new text object is independent of source artwork and never redacts it."""
+    page_info = data.pages[page_number]
+    box = checked_box(coordinates, page_info)
+    if len(data.spans) >= 40000:
+        raise EditError("This document has reached the text-run limit.")
+    reference = data.spans.get(template) if template else None
+    if template and not reference:
+        raise EditError("The text to duplicate was not found.")
+    size = reference["size"] if reference else max(4, min(24, box.height * 0.7))
+    sid = f"p{page_number}-added-{data.revision + 1}"
+    span = {"id": sid, "page": page_number, "text": "", "bbox": list(box),
+            "origin": [box.x0, box.y0 + size * 0.8], "font": "Helvetica", "font_key": sid,
+            "size": size, "color": "#242424", "opacity": 1.0, "bold": False, "italic": False,
+            "font_status": "standard", "editable": True, "reason": None, "source": "added", "confidence": None,
+            "background": None, "suggested_font": "builtin:helv", "rotation": 0}
+    if reference:
+        for key in ("font", "size", "color", "opacity", "bold", "italic", "font_status", "subset", "rotation"):
+            if key in reference:
+                span[key] = reference[key]
+        span["origin"] = [box.x0 + reference["origin"][0] - reference["bbox"][0],
+                          box.y0 + reference["origin"][1] - reference["bbox"][1]]
+    data.spans[sid] = span
+    data.fonts[sid] = data.fonts.get(reference["font_key"]) if reference else library.load("builtin:helv")
+    if data.fonts[sid] is None:
+        del data.fonts[sid]
     page_info["spans"].append(span)
     data.revision += 1
     return span

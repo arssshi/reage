@@ -11,8 +11,8 @@ import unicodedata
 
 import pymupdf as fitz
 
-from .models import TextEdit
-from .fonts import BASE_FONTS, FontSource, choose_font, embedded_candidates, normalize_font, repair_unicode_map, resolve_embedded
+from .models import ExportRequest, TextEdit
+from .fonts import BASE_FONTS, FontSource, choose_styled_font, embedded_candidates, normalize_font, repair_unicode_map, resolve_embedded
 from .shaping import insert_shaped, is_rtl, requires_shaping, shape_line
 
 fitz.TOOLS.set_small_glyph_heights(True)
@@ -91,8 +91,8 @@ def inspect_document(source: bytes, name: str) -> DocumentData:
                             candidate.repaired = True
                         except Exception:
                             pass
-            # Text extraction uses unrotated coordinates. Rotated pages remain
-            # viewable, but are explicitly excluded from this editing pipeline.
+            # Source geometry remains unrotated for redaction. Public geometry
+            # uses the rendered page frame, including quarter-turn page rotation.
             page_info = {"index": page.number, "width": page.rect.width,
                          "height": page.rect.height, "rotation": page.rotation, "spans": []}
             if page.rect.width <= 0 or page.rect.height <= 0 or page.rect.width > 4000 or page.rect.height > 4000:
@@ -113,8 +113,8 @@ def inspect_document(source: bytes, name: str) -> DocumentData:
                             reason = "This page has pending redactions. Apply or remove those in the source document before editing."
                         elif raw["size"] < 1 or raw.get("alpha", 255) == 0:
                             reason = "Invisible or extremely small text is currently view-only."
-                        elif page.rotation or not orthogonal or line.get("wmode"):
-                            reason = "Rotated pages, angled text, and vertical writing modes are currently view-only."
+                        elif not orthogonal or line.get("wmode"):
+                            reason = "Angled text and vertical writing modes are currently view-only."
                         elif any(region.intersects(fitz.Rect(raw["bbox"])) for region in special_text):
                             reason = "Outlined, invisible, or optional-layer text is currently view-only."
                         elif raw["text"].count("\ufffd") > max(1, len(raw["text"]) // 4):
@@ -147,7 +147,8 @@ def inspect_document(source: bytes, name: str) -> DocumentData:
                         total_glyphs += len(geometry)
                         span = {
                             "id": sid, "page": page.number, "text": raw["text"],
-                            "bbox": bbox, "origin": list(raw["origin"]),
+                            "bbox": bbox, "origin": list(fitz.Point(raw["origin"]) * page.rotation_matrix),
+                            "source_bbox": list(raw["bbox"]), "source_origin": list(raw["origin"]), "source_rotation": angle,
                             "font": raw["font"], "font_key": font_key,
                             "size": raw["size"], "color": f"#{raw['color']:06x}",
                             "opacity": raw.get("alpha", 255) / 255,
@@ -155,7 +156,7 @@ def inspect_document(source: bytes, name: str) -> DocumentData:
                             "font_status": "repaired" if font_source and font_source.repaired else "embedded" if font_source and font_source.buffer else "standard" if font_source else "unavailable",
                             "editable": reason is None, "reason": reason,
                             "source": "native", "confidence": None, "background": None,
-                            "rotation": angle,
+                            "rotation": (angle - page.rotation) % 360,
                             "suggested_font": None,
                             "anchor": {"page": page.number, "block": bi, "line": li, "run": si,
                                        "font_xref": font_source.pdf_xref if font_source else None,
@@ -184,6 +185,8 @@ def inspect_document(source: bytes, name: str) -> DocumentData:
 
 
 def redaction_rect(span: dict) -> fitz.Rect:
+    if "source_bbox" in span:
+        span = {**span, "bbox": span["source_bbox"], "origin": span["source_origin"], "rotation": span["source_rotation"]}
     if span.get("rotation", 0):
         x, y = span["origin"]
         box = (fitz.Rect(span["bbox"]) + (-x, -y, -x, -y)) * fitz.Matrix(span["rotation"])
@@ -214,49 +217,57 @@ def prepare_edits(data: DocumentData, edits: list[TextEdit]) -> list[dict]:
         font, resolution = None, "Text removed"
         if edit.text:
             try:
-                font, resolution = choose_font(span, edit.text, edit.font, data.fonts.get(span["font_key"]))
+                font, resolution = choose_styled_font(span, edit.text, edit.font, data.fonts.get(span["font_key"]), data.fonts, edit.bold, edit.italic)
             except ValueError as exc:
                 raise EditError(str(exc), edit.span_id, "font_unavailable") from exc
         size = edit.size if edit.size is not None else span["size"]
         width = font.font.text_length(edit.text, fontsize=size) if font and edit.text else 0
         shaped = None
+        opacity = span["opacity"] if edit.opacity is None else edit.opacity
         if font and edit.text and (requires_shaping(edit.text) or font.fallbacks):
             try:
-                shaped = shape_line(edit.text, font.buffer or font.font.buffer, size, edit.color or span["color"], span["opacity"],
+                shaped = shape_line(edit.text, font.buffer or font.font.buffer, size, edit.color or span["color"], opacity,
                                     tuple(extra.buffer or extra.font.buffer for extra in font.fallbacks))
                 width = shaped.width
             except ValueError as exc:
                 raise EditError(str(exc), edit.span_id, "shaping_failed") from exc
-        rotation = span.get("rotation", 0)
-        original_width = span["bbox"][3] - span["bbox"][1] if rotation in (90, 270) else span["bbox"][2] - span["bbox"][0]
+        original_rotation = span.get("rotation", 0)
+        rotation = original_rotation if edit.rotation is None else edit.rotation
+        original_width = span["bbox"][3] - span["bbox"][1] if original_rotation in (90, 270) else span["bbox"][2] - span["bbox"][0]
         if edit.fit and width > original_width:
             size *= original_width / width
             width = original_width
             if size < 1:
                 raise EditError("The text is too long to fit at a readable size.", edit.span_id)
             if shaped:
-                shaped = shape_line(edit.text, font.buffer or font.font.buffer, size, edit.color or span["color"], span["opacity"],
+                shaped = shape_line(edit.text, font.buffer or font.font.buffer, size, edit.color or span["color"], opacity,
                                     tuple(extra.buffer or extra.font.buffer for extra in font.fallbacks))
                 width = shaped.width
         x, y = span["origin"]
         if shaped and not rotation:
             x = span["bbox"][2] - width if is_rtl(span["text"]) else span["bbox"][0]
-        # Keep the original baseline and proportional selection-box metrics.
+        # Preserve original metrics while transforming only the replacement.
         ratio = size / span["size"]
-        old_local = (fitz.Rect(span["bbox"]) + (-x, -y, -x, -y)) * fitz.Matrix(rotation)
+        old_local = (fitz.Rect(span["bbox"]) + (-x, -y, -x, -y)) * fitz.Matrix(original_rotation)
         local = fitz.Rect(0, old_local.y0 * ratio, width, old_local.y1 * ratio)
-        if font and edit.font != "original":
+        # Added boxes are layout frames, not observed glyph bounds. Use the
+        # actual face metrics even when a duplicate reuses the original font.
+        if font and (span.get("source") == "added" or edit.font != "original" or font is not data.fonts.get(span["font_key"])):
             height = font.font.ascender - font.font.descender
             local.y0 = -size * font.font.ascender / height
             local.y1 = -size * font.font.descender / height
         if shaped:
             local = fitz.Rect(0, shaped.bbox[1] - shaped.baseline, width, shaped.bbox[3] - shaped.baseline)
+        alignment = (original_width - width) * {"left": 0, "center": 0.5, "right": 1}[edit.align]
+        x += edit.offset_x + alignment * math.cos(math.radians(rotation))
+        y += edit.offset_y - alignment * math.sin(math.radians(rotation))
         bbox = list(local * fitz.Matrix(-rotation) + (x, y, x, y))
         page = data.pages[span["page"]]
         if edit.text and (bbox[0] < -0.5 or bbox[1] < -0.5 or bbox[2] > page["width"] + 0.5 or bbox[3] > page["height"] + 0.5):
-            raise EditError("The replacement would extend outside the page. Enable fit to original width, shorten the text, or reduce its size.", edit.span_id, "overflow")
+            raise EditError("The replacement would extend outside the page. Move it inside the page, enable fit to original width, or reduce its size.", edit.span_id, "overflow")
         prepared.append({"edit": edit, "span": span, "font": font, "size": size, "shaped": shaped,
-                          "bbox": bbox, "origin": (x, y), "color": edit.color or span["color"], "resolution": resolution})
+                          "bbox": bbox, "origin": (x, y), "rotation": rotation, "opacity": opacity,
+                          "color": edit.color or span["color"], "resolution": resolution})
 
     changed = {item["span"]["id"]: item for item in prepared}
     for item in prepared:
@@ -265,7 +276,9 @@ def prepare_edits(data: DocumentData, edits: list[TextEdit]) -> list[dict]:
         for other in data.pages[span["page"]]["spans"]:
             if other["id"] == span["id"]:
                 continue
-            if span.get("source", "native") == "native" and other.get("source", "native") == "native" and strip.intersects(fitz.Rect(other["bbox"])) and other["id"] not in changed:
+            if other.get("source") == "added" and other["id"] not in changed:
+                continue
+            if span.get("source", "native") == "native" and other.get("source", "native") == "native" and strip.intersects(fitz.Rect(other.get("source_bbox", other["bbox"]))) and other["id"] not in changed:
                 raise EditError("This text overlaps another text run. Editing it could remove neighboring text, so it is currently view-only.", edit.span_id, "overlapping_source")
             other_item = changed.get(other["id"])
             if other_item and not other_item["edit"].text:
@@ -274,14 +287,18 @@ def prepare_edits(data: DocumentData, edits: list[TextEdit]) -> list[dict]:
             overlap = fitz.Rect(item["bbox"]) & fitz.Rect(other_bbox)
             old_overlap = fitz.Rect(span["bbox"]) & fitz.Rect(other["bbox"])
             if edit.text and not overlap.is_empty and overlap.width > 0.8 and overlap.height > min(item["size"], other["size"]) * 0.35 and overlap.get_area() > old_overlap.get_area() + 1:
-                raise EditError("The replacement would overlap nearby text. Enable fit to original width, shorten the text, or reduce its size.", edit.span_id, "text_collision")
+                raise EditError("The replacement would overlap nearby text. Move it to free space, enable fit to original width, or reduce its size.", edit.span_id, "text_collision")
     return prepared
 
 
 def public_changes(prepared: list[dict]) -> list[dict]:
     return [{"span_id": p["span"]["id"], "bbox": p["bbox"], "size": p["size"],
              "text": p["edit"].text, "color": p["color"], "font_name": p["font"].display_name if p["font"] else "",
-             "font_resolution": p["resolution"], "font_id": p["font"].id if p["font"] else ""} for p in prepared]
+             "font_resolution": p["resolution"], "font_id": p["font"].id if p["font"] else "",
+             "origin": list(p["origin"]), "rotation": p["rotation"], "opacity": p["opacity"],
+             "bold": bool(p["font"] and p["font"].font.flags.get("bold")),
+             "italic": bool(p["font"] and p["font"].font.flags.get("italic")),
+             "underline": p["edit"].underline, "strikeout": p["edit"].strikeout} for p in prepared]
 
 
 def apply_edits(data: DocumentData, edits: list[TextEdit], page_only: int | None = None) -> tuple[fitz.Document, list[dict]]:
@@ -296,7 +313,7 @@ def apply_edits(data: DocumentData, edits: list[TextEdit], page_only: int | None
             page_edits = [p for p in prepared if p["span"]["page"] == page_number]
             links = page.get_links()
             native_edits = [item for item in page_edits if item["span"].get("source", "native") == "native"]
-            recovery_edits = [item for item in page_edits if item["span"].get("source", "native") != "native"]
+            recovery_edits = [item for item in page_edits if item["span"].get("source") in ("ocr", "region")]
             for item in native_edits:
                 page.add_redact_annot(redaction_rect(item["span"]), fill=False, cross_out=False)
             # Never remove images or vector art behind text.
@@ -315,12 +332,13 @@ def apply_edits(data: DocumentData, edits: list[TextEdit], page_only: int | None
                 if not edit.text:
                     continue
                 origin = fitz.Point(item["origin"])
-                rotation = span.get("rotation", 0)
-                if span.get("source") != "native" and page.rotation:
+                rotation = item["rotation"]
+                if page.rotation:
                     origin = origin * page.derotation_matrix
-                    rotation = page.rotation
+                    rotation = (page.rotation + rotation) % 360
                 if item["shaped"]:
                     insert_shaped(page, item["shaped"], origin.x, origin.y, edit.text, rotation)
+                    draw_decorations(page, item, origin, rotation)
                     continue
                 # Base-14 simple fonts cannot encode Unicode above Latin-1.
                 # Embed the same built-in face in that case, without changing
@@ -335,7 +353,8 @@ def apply_edits(data: DocumentData, edits: list[TextEdit], page_only: int | None
                     page.insert_font(fontname=font_name, fontbuffer=buffer)
                 color = tuple(int(item["color"][i:i + 2], 16) / 255 for i in (1, 3, 5))
                 page.insert_text(origin, edit.text, fontname=font_name, rotate=rotation,
-                                 fontsize=item["size"], color=color, fill_opacity=span["opacity"])
+                                 fontsize=item["size"], color=color, fill_opacity=item["opacity"])
+                draw_decorations(page, item, origin, rotation)
         return doc, public_changes(prepared)
     except Exception:
         doc.close()
@@ -353,10 +372,46 @@ def render_page(data: DocumentData, page_number: int, edits: list[TextEdit], sca
         return page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False).tobytes("png")
 
 
-def export_pdf(data: DocumentData, edits: list[TextEdit]) -> bytes:
-    if not edits:
+def draw_decorations(page: fitz.Page, item: dict, origin: fitz.Point, rotation: int):
+    edit, size = item["edit"], item["size"]
+    color = tuple(int(item["color"][i:i + 2], 16) / 255 for i in (1, 3, 5))
+    width = item["shaped"].width if item["shaped"] else item["font"].font.text_length(edit.text, fontsize=size)
+    for enabled, y in ((edit.underline, size * 0.1), (edit.strikeout, -size * 0.3)):
+        if enabled:
+            start = fitz.Point(0, y) * fitz.Matrix(-rotation) + origin
+            end = fitz.Point(width, y) * fitz.Matrix(-rotation) + origin
+            page.draw_line(start, end, color=color, width=max(0.5, size / 18), stroke_opacity=item["opacity"])
+
+
+def export_pdf(data: DocumentData, edits: list[TextEdit], options: ExportRequest | None = None) -> bytes:
+    if not edits and (options is None or (options.pages is None and options.title is None and options.author is None and not options.optimize)):
         return data.source
+    if options and options.pages:
+        if any(entry.page >= len(data.pages) for entry in options.pages):
+            raise EditError("An export page does not exist in this document.")
     doc, _ = apply_edits(data, edits)
     with doc:
+        if options and options.pages:
+            # Deep-copy repeated pages so each output instance can rotate independently.
+            seen, sequence = set(), []
+            for entry in options.pages:
+                if entry.page in seen:
+                    doc.fullcopy_page(entry.page)
+                    sequence.append(len(doc) - 1)
+                else:
+                    sequence.append(entry.page)
+                    seen.add(entry.page)
+            doc.select(sequence)
+            for index, entry in enumerate(options.pages):
+                doc[index].set_rotation((doc[index].rotation + entry.rotation) % 360)
+        if options and (options.title is not None or options.author is not None):
+            metadata = doc.metadata
+            if options.title is not None:
+                metadata["title"] = options.title
+            if options.author is not None:
+                metadata["author"] = options.author
+            doc.set_metadata(metadata)
+        if options and options.optimize:
+            doc.subset_fonts()
         # Garbage collection removes obsolete text streams from the edited copy.
         return doc.tobytes(garbage=4, deflate=True)

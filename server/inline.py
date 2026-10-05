@@ -62,11 +62,19 @@ def wrap_cff(buffer: bytes) -> bytes | None:
         builder.setupHorizontalMetrics(metrics)
         ascent, descent = round(source.ascender * units), round(source.descender * units)
         builder.setupHorizontalHeader(ascent=ascent, descent=descent)
-        builder.setupNameTable({"familyName": source.name, "styleName": "Regular", "psName": cff.fontNames[0],
+        bold, italic = bool(source.flags.get("bold")), bool(source.flags.get("italic"))
+        style = "Bold Italic" if bold and italic else "Bold" if bold else "Italic" if italic else "Regular"
+        builder.setupNameTable({"familyName": source.name, "styleName": style, "psName": cff.fontNames[0],
                                 "fullName": source.name, "uniqueFontIdentifier": source.name})
-        builder.setupOS2(sTypoAscender=ascent, sTypoDescender=descent, usWinAscent=max(0, ascent), usWinDescent=max(0, -descent))
+        builder.setupOS2(sTypoAscender=ascent, sTypoDescender=descent, usWinAscent=max(0, ascent), usWinDescent=max(0, -descent),
+                         usWeightClass=700 if bold else 400, fsSelection=(32 if bold else 0) | (1 if italic else 0) | (64 if not bold and not italic else 0))
         builder.setupPost()
         builder.setupMaxp()
+        # Hosted requests clear private font caches. Identical source programs
+        # must still produce identical web-font bytes across requests/seconds.
+        builder.font.recalcTimestamp = False
+        builder.font["head"].created = builder.font["head"].modified = 2082844800
+        builder.font["head"].macStyle = int(bold) | (2 if italic else 0)
         output = BytesIO()
         builder.font.save(output)
         return output.getvalue()

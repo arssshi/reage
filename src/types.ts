@@ -1,5 +1,5 @@
 export type Box = [number, number, number, number]
-export type WorkspaceTool = 'edit' | 'ocr' | 'fonts' | 'replace'
+export type WorkspaceTool = 'edit' | 'ocr' | 'fonts' | 'replace' | 'add' | 'pages'
 
 export interface TextSpan {
   id: string
@@ -16,7 +16,7 @@ export interface TextSpan {
   font_status: 'embedded' | 'standard' | 'unavailable' | 'repaired' | 'estimated'
   editable: boolean
   reason: string | null
-  source: 'native' | 'ocr' | 'region'
+  source: 'native' | 'ocr' | 'region' | 'added'
   confidence: number | null
   background: string | null
   suggested_font: string | null
@@ -69,6 +69,23 @@ export interface FontProbe {
   suggested_download: string | null
 }
 
+export interface FontMatches {
+  candidates: FontEntry[]
+  downloads: { family: string; kind: 'exact' | 'compatible'; label: string }[]
+  search: string
+  subset: boolean
+  missing: string[]
+  original_name: string
+}
+
+export interface ExportOptions {
+  pages?: { page: number; rotation: number }[]
+  title?: string
+  author?: string
+  optimize?: boolean
+  filename?: string
+}
+
 export interface OCRLine {
   text: string
   bbox: Box
@@ -84,6 +101,15 @@ export interface TextEdit {
   color: string | null
   fit: boolean
   background?: string | null
+  bold?: boolean | null
+  italic?: boolean | null
+  underline?: boolean
+  strikeout?: boolean
+  opacity?: number | null
+  offset_x?: number
+  offset_y?: number
+  align?: 'left' | 'center' | 'right'
+  rotation?: number | null
 }
 
 export interface Change {
@@ -95,6 +121,13 @@ export interface Change {
   font_name: string
   font_resolution: string
   font_id: string
+  origin: [number, number]
+  rotation: number
+  opacity: number
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  strikeout: boolean
 }
 
 export interface Snapshot {

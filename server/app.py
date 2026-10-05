@@ -17,10 +17,10 @@ from starlette.concurrency import run_in_threadpool
 
 from .demo import create_demo, create_scanned_demo
 from .engine import DocumentData, EditError, export_pdf, inspect_document, prepare_edits, public_changes, render_page
-from .models import EditRequest, RenderRequest, FontFetchRequest, FontProbeRequest, OCRRequest, RegionRequest
-from .fonts import COMPATIBLE, GOOGLE_FAMILIES, choose_font, family_key, library
+from .models import EditRequest, ExportRequest, RenderRequest, FontFetchRequest, FontProbeRequest, OCRRequest, RegionRequest, TextAddRequest
+from .fonts import COMPATIBLE, GOOGLE_FAMILIES, choose_styled_font, family_key, font_matches, google_catalog, library
 from .assets import OCR_LANGUAGES, language_model
-from .recovery import register_ocr, register_region
+from .recovery import register_ocr, register_region, register_text
 from .inline import browser_font
 
 MAX_UPLOAD = 30 * 1024 * 1024
@@ -44,8 +44,11 @@ asset_lock = threading.Lock()
 
 
 def manifest(document_id: str, data: DocumentData):
+    private_geometry = {"source_bbox", "source_origin", "source_rotation"}
+    pages = [{**page, "spans": [{key: value for key, value in span.items() if key not in private_geometry}
+                                for span in page["spans"]]} for page in data.pages]
     return {"id": document_id, "name": data.name, "page_count": len(data.pages),
-            "size": len(data.source), "pages": data.pages, "warnings": data.warnings, "revision": data.revision}
+            "size": len(data.source), "pages": pages, "warnings": data.warnings, "revision": data.revision}
 
 
 @app.middleware("http")
@@ -134,6 +137,14 @@ async def upload_font(file: UploadFile = File(...)):
     return await run_in_threadpool(register)
 
 
+@app.get("/api/fonts/catalog")
+def public_font_catalog():
+    try:
+        return {"families": google_catalog(), "provider": "Google Fonts"}
+    except (ValueError, OSError) as exc:
+        raise EditError(str(exc), code="font_catalog_unavailable") from exc
+
+
 @app.post("/api/fonts/fetch")
 def fetch_font(request: FontFetchRequest):
     with engine_lock:
@@ -151,12 +162,22 @@ def probe_font(document_id: str, request: FontProbeRequest):
         if not span:
             raise HTTPException(404, "Text selection not found.")
         try:
-            font, resolution = choose_font(span, request.text, request.font, data.fonts.get(span["font_key"]))
+            font, resolution = choose_styled_font(span, request.text, request.font, data.fonts.get(span["font_key"]), data.fonts, request.bold, request.italic)
             return {"name": font.display_name, "resolution": resolution, "id": font.id,
                     "source": font.kind, "suggested_download": COMPATIBLE.get(family_key(span["font"])),
                     "original_name": span["font"]}
         except ValueError as exc:
             raise EditError(str(exc), span["id"], "font_unavailable") from exc
+
+
+@app.post("/api/documents/{document_id}/font-matches")
+def match_fonts(document_id: str, request: FontProbeRequest):
+    with engine_lock:
+        data = get_document(document_id)
+        span = data.spans.get(request.span_id)
+        if not span:
+            raise HTTPException(404, "Text selection not found.")
+        return font_matches(span, request.text, data.fonts)
 
 
 @app.get("/api/ocr/languages")
@@ -165,14 +186,14 @@ def ocr_languages():
 
 
 @app.get("/api/documents/{document_id}/inline-style/{span_id}")
-def inline_style(document_id: str, span_id: str, font: str = "auto", include_font: bool = False):
+def inline_style(document_id: str, span_id: str, font: str = "auto", include_font: bool = False, bold: bool | None = None, italic: bool | None = None):
     with engine_lock:
         data = get_document(document_id)
         span = data.spans.get(span_id)
         if not span:
             raise HTTPException(404, "Text selection not found.")
         try:
-            source, resolution = choose_font(span, (span["text"] or " ") if font == "auto" else "", font, data.fonts.get(span["font_key"]))
+            source, resolution = choose_styled_font(span, (span["text"] or " ") if font == "auto" else "", font, data.fonts.get(span["font_key"]), data.fonts, bold, italic)
         except ValueError as exc:
             raise EditError(str(exc), span_id, "font_unavailable") from exc
         buffer = source.buffer or source.font.buffer
@@ -181,18 +202,19 @@ def inline_style(document_id: str, span_id: str, font: str = "auto", include_fon
         return {"name": source.display_name, "resolution": resolution,
                 "ascent": source.font.ascender / (source.font.ascender - source.font.descender),
                 "web_font": web_font, "subset": span.get("subset", False), "font_id": source.id or "original",
+                "bold": bool(source.font.flags.get("bold")), "italic": bool(source.font.flags.get("italic")),
                 **({"font_data": b64encode(web_buffer).decode() if web_buffer else None} if include_font else {})}
 
 
 @app.get("/api/documents/{document_id}/inline-font/{span_id}")
-def inline_font(document_id: str, span_id: str, font: str = "auto"):
+def inline_font(document_id: str, span_id: str, font: str = "auto", bold: bool | None = None, italic: bool | None = None):
     with engine_lock:
         data = get_document(document_id)
         span = data.spans.get(span_id)
         if not span:
             raise HTTPException(404, "Text selection not found.")
         try:
-            source, _ = choose_font(span, span["text"] or " ", font, data.fonts.get(span["font_key"]))
+            source, _ = choose_styled_font(span, span["text"] or " ", font, data.fonts.get(span["font_key"]), data.fonts, bold, italic)
         except ValueError as exc:
             raise EditError(str(exc), span_id, "font_unavailable") from exc
         buffer = browser_font(source.buffer or source.font.buffer)
@@ -234,6 +256,16 @@ def add_region(document_id: str, page_number: int, request: RegionRequest):
         if not 0 <= page_number < len(data.pages):
             raise HTTPException(404, "Page not found.")
         span = register_region(data, page_number, request.bbox)
+        return {"document": manifest(document_id, data), "span_id": span["id"]}
+
+
+@app.post("/api/documents/{document_id}/pages/{page_number}/text")
+def add_text(document_id: str, page_number: int, request: TextAddRequest):
+    with engine_lock:
+        data = get_document(document_id)
+        if not 0 <= page_number < len(data.pages):
+            raise HTTPException(404, "Page not found.")
+        span = register_text(data, page_number, request.bbox, request.template)
         return {"document": manifest(document_id, data), "span_id": span["id"]}
 
 
@@ -333,10 +365,10 @@ def render(document_id: str, page_number: int, request: RenderRequest):
 
 
 @app.post("/api/documents/{document_id}/export")
-def export(document_id: str, request: EditRequest):
+def export(document_id: str, request: ExportRequest):
     with engine_lock:
         data = get_document(document_id)
-        result = export_pdf(data, request.edits)
+        result = export_pdf(data, request.edits, request)
         name = f"{Path(data.name).stem}-edited.pdf"
     return Response(result, media_type="application/pdf", headers={
         "Content-Disposition": f"attachment; filename=edited.pdf; filename*=UTF-8''{quote(name)}"
