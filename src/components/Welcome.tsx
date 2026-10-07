@@ -1,9 +1,8 @@
-import { useState } from 'react'
-import { ArrowDownToLine, ArrowRight, ArrowUpRight, Check, ChevronRight, CircleHelp, Github, FileText, Fingerprint, LayoutGrid, LockKeyhole, ScanText, Search, ShieldCheck, TextCursorInput, Type, Upload, WandSparkles } from 'lucide-react'
+import { ArrowUpRight, CircleHelp } from 'lucide-react'
 import BrandLogo from './BrandLogo'
+import { assetUrl, BASE_URL, GITHUB_URL } from '../config'
 import { APP_VERSION } from '../api'
 import type { WorkspaceTool } from '../types'
-import { apiUrl, assetUrl, BASE_URL, GITHUB_URL, IS_HOSTED, MAX_UPLOAD_MB, PRIVACY_COPY } from '../config'
 
 interface Props {
   busy: boolean
@@ -13,55 +12,44 @@ interface Props {
   onStartTool: (tool: WorkspaceTool) => void
 }
 
+const page = (slug: string) => `${BASE_URL}${slug}/`
+
 export default function Welcome({ busy, onOpen, onDemo, onHelp, onStartTool }: Props) {
-  const [section, setSection] = useState('workspace')
-  return <div className="home-shell">
-    <a className="skip-link" href="#workspace">Skip to workspace</a>
-    <aside className="home-sidebar">
-      <a className="brand" href={BASE_URL} aria-label="Reage home"><BrandLogo /></a>
-      <span className="sidebar-caption">YOUR PDF WORKSPACE</span>
-      <nav aria-label="Main navigation">
-        <a href="#workspace" className={section === 'workspace' ? 'active' : ''} onClick={() => setSection('workspace')}><LayoutGrid size={19} /><span>Your workspace</span><span className="nav-dot" /></a>
-        <a href="#tools" className={section === 'tools' ? 'active' : ''} onClick={() => setSection('tools')}><WandSparkles size={19} /><span>Explore tools</span><ChevronRight size={15} /></a>
-      </nav>
-      <div className="sidebar-guide"><span className="guide-symbol"><TextCursorInput size={23} /></span><h3>Small edits.<br />Same character.</h3><p>Keep the details that make your document yours.</p><button onClick={onHelp}>A quick introduction <ArrowUpRight size={14} /></button></div>
-      <div className="sidebar-bottom-links"><button onClick={onHelp}><CircleHelp size={18} /> Help & shortcuts</button><a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={18} /> View on GitHub <ArrowUpRight size={13} /></a><div className="local-label"><span /> {IS_HOSTED ? 'Online workspace' : 'Local workspace'} <span>v{APP_VERSION}</span></div></div>
-    </aside>
-
-    <div className="home-content">
-      <header className="home-topbar"><span className="home-breadcrumb">Workspace <ChevronRight size={14} /><strong>Overview</strong></span><a className="brand mobile-home-brand" href={BASE_URL} aria-label="Reage home"><BrandLogo /></a><div><span className="privacy-pill"><LockKeyhole size={13} /> {IS_HOSTED ? 'No saved documents' : 'Private by design'}</span><a className="github-link" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Reage on GitHub"><Github size={17} /> GitHub <ArrowUpRight size={13} /></a><button className="icon-button" onClick={onHelp} aria-label="Help & shortcuts"><CircleHelp size={19} /></button></div></header>
-      <main id="workspace" className="home-main">
-        <div className="home-intro"><div><span className="eyebrow">YOUR DOCUMENT. YOUR POSSIBILITIES.</span><h1>Your PDFs.<br /><em>Precisely edited.</em></h1><p>Edit, move, and style your text. Find the right font.<br />Make the final copy yours.</p></div><div className="intro-note"><span><Check size={14} /> No account or subscription</span><span><Fingerprint size={14} /> Original files preserved</span><span><Github size={14} /> Built in the open</span></div></div>
-
-        <div className="home-start-grid">
-          <section className="upload-panel" aria-labelledby="upload-title">
-            <div className="upload-card-top"><span><span className="status-dot" /> READY WHEN YOU ARE</span><span>01 / OPEN</span></div>
-            <div className="paper-stack" aria-hidden="true"><div className="stack-paper back" /><div className="stack-paper front"><span className="paper-fold" /><span className="paper-aa">Aa<span>|</span></span><i /><i /><span className="paper-label">YOUR NEXT CHAPTER</span></div><span className="stack-badge"><Check size={16} /></span><span className="stack-spark">+</span></div>
-            <h2 id="upload-title">Open a PDF to get started.</h2><p>Drag your PDF here, or choose a file below.</p>
-            <button className="button primary upload-primary" onClick={onOpen} disabled={busy} aria-label="Open a PDF"><Upload size={17} /> Choose a PDF <ArrowRight size={17} /></button>
-            <span className="upload-footnote">PDF files up to {MAX_UPLOAD_MB} MB <span>·</span> No account needed</span>
-            {IS_HOSTED && <p className="upload-privacy">{PRIVACY_COPY} <a href={`${GITHUB_URL}#run-locally`} target="_blank" rel="noreferrer">Local setup ↗</a></p>}
-          </section>
-
-          <section className="sample-panel" aria-labelledby="sample-title"><div className="section-label">TAKE A LOOK AROUND <span>↗</span></div><h2 id="sample-title">Just exploring?</h2><p>Try an example. Make a few changes.<br />See how it feels.</p>
-            <button className="sample-document" onClick={() => onDemo()} disabled={busy} aria-label="Try a sample PDF"><span className="sample-cover mint"><span>FIELD<br />NOTES</span><i /><i /><small>01—02</small></span><span className="sample-info"><strong>A document to play with</strong><small>Native text · 2 pages</small><span>Try a sample PDF <ArrowUpRight size={14} /></span></span></button>
-            <button className="sample-document" onClick={() => onDemo(true)} disabled={busy} aria-label="Try a scanned PDF + OCR"><span className="sample-cover lavender"><ScanText size={26} strokeWidth={1.3} /><i /><i /><small>SCAN / 01</small></span><span className="sample-info"><strong>Find words in a scan</strong><small>Image-based · Local OCR</small><span>Try a scanned PDF <ArrowUpRight size={14} /></span></span></button>
-            <span className="sample-hint"><Fingerprint size={15} /> Your originals stay original.</span>
-          </section>
+  return <div className="seo-shell">
+    <a className="seo-skip" href="#workspace">Skip to content</a>
+    <header className="seo-header">
+      <a className="seo-brand" href={BASE_URL} aria-label="Reage home"><BrandLogo /></a>
+      <nav aria-label="Primary navigation"><a href={page('pdf-editor')}>PDF editor</a><a href={page('pdf-font-recovery')}>Font recovery</a><a href={page('ocr-pdf-editor')}>OCR for scans</a><a href={page('guide')}>Guide</a></nav>
+      <button className="seo-header-cta" onClick={onOpen} disabled={busy}>Open a PDF <span aria-hidden="true">→</span></button>
+    </header>
+    <main id="workspace">
+      <section className="seo-hero" aria-labelledby="seo-title">
+        <div className="seo-hero-copy">
+          <p className="seo-eyebrow">OPEN SOURCE · LOCAL FIRST · BUILT FOR WORDS</p>
+          <h1 id="seo-title">Edit PDF text online without losing the document’s character.</h1>
+          <p className="seo-lede">Reage is a free PDF editor for precise text changes, font recovery, scanned documents, and page organization. Change the words, keep the details, and export a searchable copy.</p>
+          <div className="seo-actions"><button className="seo-button primary" onClick={onOpen} disabled={busy}>Open a PDF <span aria-hidden="true">→</span></button><button className="seo-button secondary" onClick={() => onDemo()} disabled={busy}>Explore a sample</button></div>
+          <p className="seo-proof"><span>✓</span> No account <span>✓</span> Source PDF stays untouched <span>✓</span> AGPL open source</p>
         </div>
+        <div className="seo-hero-media"><picture><source srcSet={assetUrl('/brand/reage-social-card.webp')} type="image/webp" /><img src={assetUrl('/brand/reage-social-card.png')} alt="Reage PDF editor workspace for editing text and recovering fonts" width="1200" height="630" fetchPriority="high" /></picture></div>
+      </section>
 
-        <section id="tools" className="home-tools" aria-labelledby="tools-title"><div className="home-section-heading"><div><span className="eyebrow">START WITH WHAT YOU NEED</span><h2 id="tools-title">A simpler way to work with PDFs.</h2></div><span>Choose a tool, then open your PDF.</span></div><div className="home-tool-grid">
-          <button className="home-tool-card" onClick={() => onStartTool('edit')} disabled={busy}><span className="tool-card-icon peach"><TextCursorInput size={23} /></span><ArrowUpRight className="tool-card-arrow" size={18} /><h3>Edit & style the words</h3><p>Type in place. Bold, italic, color,<br />size, and move text with ease.</p><span className="tool-card-link">Edit text <ArrowRight size={13} /></span></button>
-          <button className="home-tool-card" onClick={() => onStartTool('add')} disabled={busy}><span className="tool-card-icon mint"><Type size={23} /></span><ArrowUpRight className="tool-card-arrow" size={18} /><h3>Add something new</h3><p>Place new text anywhere.<br />Resize and position it on the page.</p><span className="tool-card-link">Add text <ArrowRight size={13} /></span></button>
-          <button className="home-tool-card" onClick={() => onStartTool('ocr')} disabled={busy}><span className="tool-card-icon mint"><ScanText size={23} /></span><ArrowUpRight className="tool-card-arrow" size={18} /><h3>Give scans a voice</h3><p>Recognize text locally.<br />Review and refine the result.</p><span className="tool-card-link">Recognize text <ArrowRight size={13} /></span></button>
-          <button className="home-tool-card" onClick={() => onStartTool('fonts')} disabled={busy}><span className="tool-card-icon lavender"><Type size={23} /></span><ArrowUpRight className="tool-card-arrow" size={18} /><h3>Find the right face</h3><p>Inspect, upload, or recover<br />the fonts your PDF needs.</p><span className="tool-card-link">Font Studio <ArrowRight size={13} /></span></button>
-          <button className="home-tool-card" onClick={() => onStartTool('replace')} disabled={busy}><span className="tool-card-icon butter"><Search size={23} /></span><ArrowUpRight className="tool-card-arrow" size={18} /><h3>Make one change, everywhere</h3><p>Find, preview, and replace<br />with a single undo step.</p><span className="tool-card-link">Find & replace <ArrowRight size={13} /></span></button>
-          <button className="home-tool-card" onClick={() => onStartTool('pages')} disabled={busy}><span className="tool-card-icon peach"><FileText size={23} /></span><ArrowUpRight className="tool-card-arrow" size={18} /><h3>Arrange the final copy</h3><p>Reorder, rotate, duplicate,<br />or export just the pages you need.</p><span className="tool-card-link">Organize & export <ArrowRight size={13} /></span></button>
-        </div></section>
+      <section className="seo-samples" id="seo-samples" aria-labelledby="sample-title"><div><p className="seo-eyebrow">TRY IT WITHOUT UPLOADING YOUR OWN FILE</p><h2 id="sample-title">See the editor in a minute.</h2><p>Explore a native PDF or test local OCR on a scanned page.</p></div><div className="seo-sample-actions"><button className="seo-sample" onClick={() => onDemo()} disabled={busy}><strong>Try a sample PDF</strong><span>Native text · 2 pages <ArrowUpRight size={14} /></span></button><button className="seo-sample" onClick={() => onDemo(true)} disabled={busy}><strong>Try a scanned PDF + OCR</strong><span>Image-based · Local OCR <ArrowUpRight size={14} /></span></button></div></section>
 
-        <div className="home-reassurance"><span className="reassurance-icon"><ShieldCheck size={25} strokeWidth={1.5} /></span><div><strong>Your work stays in your hands.</strong><p>{IS_HOSTED ? 'Temporary server processing. Original files preserved. Open source, always.' : 'Local processing. Original files preserved. Open source, always.'}</p></div><a href={apiUrl('/api/license')} target="_blank" rel="noreferrer">Built to be open <ArrowUpRight size={15} /></a></div>
-        <footer className="home-footer"><span><img src={assetUrl('/brand/reage-mark.svg')} alt="Reage mark" width="19" height="19" /> A little more possibility.</span><div><a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={14} /> GitHub</a><a href={apiUrl('/api/brand-kit')} download><ArrowDownToLine size={14} /> Brand assets</a><button onClick={onHelp}>Help & shortcuts</button><a href={apiUrl('/api/source')} download><FileText size={14} /> Source</a></div></footer>
-      </main>
-    </div>
+      <section className="seo-section" id="features" aria-labelledby="feature-title"><p className="seo-eyebrow">A PDF editor that respects the page</p><h2 id="feature-title">The useful tools are close to the document.</h2><div className="seo-grid three">
+        <button className="seo-card" onClick={() => onStartTool('edit')} disabled={busy}><span className="seo-card-number">01</span><h3>Edit and style PDF text</h3><p>Select a text run, type naturally, apply real bold or italic faces, move it, resize it, and validate the result against the PDF engine.</p><span className="seo-link">Edit PDF text <span aria-hidden="true">→</span></span></button>
+        <button className="seo-card" aria-label="Find the right face — recover the font you need" onClick={() => onStartTool('fonts')} disabled={busy}><span className="seo-card-number">02</span><h3>Recover the font you need</h3><p>Font Studio checks glyph coverage, embedded companions, local fonts, bundled faces, and open-font downloads before identifying a substitute.</p><span className="seo-link">Explore font recovery <span aria-hidden="true">→</span></span></button>
+        <button className="seo-card" onClick={() => onStartTool('ocr')} disabled={busy}><span className="seo-card-number">03</span><h3>Make scanned PDFs searchable</h3><p>Run browser OCR on image pages, review confidence and typography, or replace a missed visible region without flattening the document.</p><span className="seo-link">Work with scans <span aria-hidden="true">→</span></span></button>
+        <button className="seo-card" onClick={() => onStartTool('pages')} disabled={busy}><span className="seo-card-number">04</span><h3>Arrange the final copy</h3><p>Reorder, rotate, duplicate, remove, or extract pages. Add metadata, choose a filename, and optionally subset fonts before download.</p><span className="seo-link">Organize PDF pages <span aria-hidden="true">→</span></span></button>
+        <a className="seo-card" href={page('guide')}><span className="seo-card-number">05</span><h3>See what changed</h3><p>Compare the original, inspect font resolution, keep edits undoable, and see honest explanations when a PDF structure needs review.</p><span className="seo-link">Read the editing guide <span aria-hidden="true">→</span></span></a>
+        <a className="seo-card" href={page('about')}><span className="seo-card-number">06</span><h3>Use a calmer workspace</h3><p>Reage is document-first, responsive, and built around local processing, transparent limitations, and a source code you can inspect.</p><span className="seo-link">About Reage <span aria-hidden="true">→</span></span></a>
+      </div></section>
+
+      <section className="seo-band" aria-labelledby="privacy-title"><div><p className="seo-eyebrow">A practical privacy choice</p><h2 id="privacy-title">Your original file is never overwritten.</h2></div><p>Use the hosted workspace for a temporary session, or run Reage on your own machine. The editor validates a new copy from an immutable source instead of quietly painting over your PDF.</p></section>
+      <section className="seo-section narrow" aria-labelledby="steps-title"><p className="seo-eyebrow">A short path from fix to export</p><h2 id="steps-title">How to edit a PDF with Reage</h2><ol className="seo-steps"><li><strong>Open a document.</strong><span>Choose a PDF, try the native sample, or use the scanned sample to explore OCR.</span></li><li><strong>Select the words.</strong><span>Click a text run to type, or choose Add text for a new searchable object.</span></li><li><strong>Check the result.</strong><span>Use formatting, Font Studio, movement handles, Original comparison, and the fidelity report.</span></li><li><strong>Export a copy.</strong><span>Download the full document or arrange only the pages you need.</span></li></ol></section>
+      <section className="seo-section narrow" id="faq" aria-labelledby="faq-title"><p className="seo-eyebrow">Questions people ask before editing</p><h2 id="faq-title">Reage PDF editor FAQ</h2><div className="seo-faq"><details><summary>Is Reage a free PDF editor?</summary><p>Yes. Reage is free and open source under AGPL-3.0-or-later. Use the hosted workspace for smaller documents or run the editor locally for larger and more private files.</p></details><details><summary>Can I edit text in a scanned PDF?</summary><p>Yes. Reage can recognize scanned text with browser-based OCR or let you draw a replacement region when OCR misses a line. OCR typography is estimated and should be reviewed.</p></details><details><summary>Does Reage preserve the original PDF?</summary><p>Yes. Reage keeps the source PDF immutable and creates a validated edited copy. Native text edits preserve supported surrounding artwork and untouched pages.</p></details><details><summary>Can Reage recover a missing PDF font?</summary><p>Font Studio checks embedded glyphs, companion faces, installed fonts, bundled fonts, and open-font downloads. If the exact font is unavailable, Reage labels the substitute.</p></details></div></section>
+      <section className="seo-author" aria-labelledby="author-title"><div className="seo-author-avatar" aria-hidden="true">r.</div><div><p className="seo-eyebrow">The person behind the project</p><h2 id="author-title">Built in the open by Sameer and contributors.</h2><p>Sameer is the creator and maintainer of Reage, an open-source PDF editor shaped around careful document handling. The project focuses on the small, high-friction changes people actually need: fixing a line, finding a font, recovering a scan, and leaving the rest of the page alone.</p><a className="seo-link" href={page('about')}>Read the project story <span aria-hidden="true">→</span></a></div></section>
+    </main>
+    <footer className="seo-footer"><span>© 2026 Reage contributors · AGPL-3.0-or-later · v{APP_VERSION}</span><nav aria-label="Footer navigation"><a href={page('about')}>About</a><a href={page('press')}>Press kit</a><a href={page('privacy')}>Privacy</a><a href={GITHUB_URL}>GitHub</a><button onClick={onHelp}><CircleHelp size={13} /> Help</button></nav></footer>
   </div>
 }
