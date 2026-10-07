@@ -1,6 +1,6 @@
 import type { Box, Change, ExportOptions, FontEntry, FontMatches, FontProbe, OCRLine, PdfDocument, TextEdit } from './types'
 import { version as APP_VERSION } from '../package.json'
-import { IS_HOSTED } from './config'
+import { apiUrl, IS_HOSTED } from './config'
 import { cloudRequest } from './cloud'
 import { RequestCache } from './requestCache'
 
@@ -27,7 +27,7 @@ async function checkService(force = false): Promise<void> {
   checkingService = (async () => {
     let response: Response
     try {
-      response = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(IS_HOSTED ? 30000 : 5000) })
+      response = await fetch(apiUrl('/api/health'), { cache: 'no-store', signal: AbortSignal.timeout(IS_HOSTED ? 30000 : 5000) })
     } catch {
       throw new Error(IS_HOSTED ? 'The PDF service is taking longer to respond. Check your connection and try again.' : 'The Python PDF service is unavailable. Stop the old Reage servers and run npm run dev from the project folder, then open the Local URL printed in that terminal.')
     }

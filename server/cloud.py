@@ -6,6 +6,7 @@ only public OCR language assets are redirected to their provider.
 from base64 import b64encode
 from hashlib import sha256
 import json
+import os
 import re
 from typing import Literal
 from urllib.parse import urlsplit
@@ -31,6 +32,12 @@ MAX_REQUEST = 4_000_000
 MAX_RESPONSE = 4_300_000
 MAX_PAGES = 50
 app = FastAPI(title="Reage hosted PDF editor", version=APP_VERSION, docs_url=None, redoc_url=None, openapi_url=None)
+DEFAULT_ALLOWED_ORIGINS = {"https://reage0.vercel.app", "https://arssshi.github.io"}
+
+
+def allowed_origins() -> set[str]:
+    configured = os.getenv("REAGE_ALLOWED_ORIGINS", "")
+    return DEFAULT_ALLOWED_ORIGINS | {origin.strip().rstrip("/") for origin in configured.split(",") if origin.strip()}
 
 
 class Recovery(BaseModel):
@@ -54,11 +61,21 @@ async def headers(request: Request, call_next):
     if origin:
         parsed = urlsplit(origin)
         loopback = parsed.hostname in ("localhost", "127.0.0.1", "::1") and request.url.hostname in ("localhost", "127.0.0.1", "::1")
-        if parsed.scheme not in ("http", "https") or (parsed.netloc != request.headers.get("host") and not loopback):
+        same_host = parsed.scheme in ("http", "https") and parsed.netloc == request.headers.get("host")
+        if parsed.scheme not in ("http", "https") or (not same_host and not loopback and origin.rstrip("/") not in allowed_origins()):
             return JSONResponse({"detail": "Use this API from the Reage website."}, status_code=403)
-    response = await call_next(request)
+    if request.method == "OPTIONS":
+        response = Response(status_code=204)
+    else:
+        response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
+    if origin and origin.rstrip("/") in allowed_origins():
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET,POST,DELETE,OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Max-Age"] = "600"
+        response.headers["Vary"] = "Origin"
     return response
 
 

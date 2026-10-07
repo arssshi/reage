@@ -6,7 +6,7 @@ import Editor from './Editor'
 import HelpDialog from './components/HelpDialog'
 import Welcome from './components/Welcome'
 import ServiceStatus from './components/ServiceStatus'
-import { MAX_UPLOAD_MB } from './config'
+import { assetUrl, MAX_UPLOAD_MB } from './config'
 
 export default function App() {
   const [document, setDocument] = useState<PdfDocument | null>(null)
@@ -63,7 +63,7 @@ export default function App() {
     <input className="visually-hidden" ref={input} type="file" accept="application/pdf,.pdf" aria-label="Choose PDF file" onChange={event => { const file = event.target.files?.[0]; if (file) void open(file); event.target.value = '' }} />
     {document ? <Editor key={document.id} document={document} initialTool={initialTool} onOpen={() => { pendingTool.current = 'edit'; input.current?.click() }} onHome={home} onUnsaved={onUnsaved} /> : <Welcome busy={busy} onOpen={() => { pendingTool.current = 'edit'; input.current?.click() }} onStartTool={tool => { pendingTool.current = tool; input.current?.click() }} onDemo={scanned => { pendingTool.current = 'edit'; void open(undefined, scanned) }} onHelp={() => setHelp(true)} />}
     {error && <div className="app-error" role="alert"><AlertCircle size={18} /><span>{error}</span><button className="icon-button tiny" onClick={() => setError('')} aria-label="Dismiss error"><X size={16} /></button></div>}
-    {busy && <div className="busy-overlay" role="status"><div><div className="loading-logo"><img src="/favicon.svg" alt="" /><LoaderCircle size={62} className="spin" /></div><h2>Making room for your document.</h2><p>Reading pages, text, and original fonts…</p></div></div>}
+    {busy && <div className="busy-overlay" role="status"><div><div className="loading-logo"><img src={assetUrl('/favicon.svg')} alt="" /><LoaderCircle size={62} className="spin" /></div><h2>Making room for your document.</h2><p>Reading pages, text, and original fonts…</p></div></div>}
     {dragging && <div className="drop-overlay"><Upload size={46} /><h2>A fresh page starts here.</h2><p>Drop your PDF to open it in Reage.</p></div>}
     {help && <HelpDialog onClose={() => setHelp(false)} />}
     <ServiceStatus />

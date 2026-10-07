@@ -1,2 +1,2 @@
-"""Vercel ASGI entrypoint; the Vite frontend is served as static assets."""
+"""Hosted ASGI entrypoint for the separate PDF-processing API."""
 from server.cloud import app

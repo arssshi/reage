@@ -3,9 +3,10 @@
 ## Engine and application
 
 React 19 / TypeScript / Vite UI; FastAPI and PyMuPDF engine; fontTools font
-repair and Tesseract.js OCR. Local mode binds to loopback; hosted mode uses
-stateless Vercel functions. No accounts, saved cloud documents, collaboration,
-or external AI service exists. PDF bytes remain
+repair and Tesseract.js OCR. Local mode binds to loopback; the public frontend
+is statically pre-rendered for GitHub Pages and calls a separate stateless API
+for hosted processing. No accounts, saved cloud documents, collaboration, or
+external AI service exists. PDF bytes remain
 immutable during text editing: validated transactions remove original text and
 insert replacements. This is real PDF editing, not a white-rectangle text overlay.
 
@@ -100,7 +101,9 @@ Manrope headings and DM Sans controls are bundled locally.
 
 ## v0.6 stateless hosting
 
-`api/index.py` exposes `server/cloud.py` behind Vercel's `/api/*` rewrite.
+`api/index.py` exposes `server/cloud.py` behind the hosted API's `/api/*`
+rewrite. The GitHub Pages deployment serves the crawlable frontend and
+pre-rendered SEO pages; it cannot run the Python API itself.
 `src/cloud.ts` translates the editor's operations into bounded multipart requests
 containing the original PDF, recovery operations and added font programs. Each
 request independently inspects the immutable source and replays recovery state;
@@ -118,6 +121,11 @@ body limit through validated redirects. Backend tests cover missing document
 state, isolated font libraries, portable font IDs, recovered regions, Unicode,
 size limits and unchanged pixels. Dedicated browser workflows use only original
 public samples, including against the production URL.
+
+The Pages workflow builds the static SEO shell, focused guide pages, sitemap,
+robots file, and useful 404 page. `VITE_API_ORIGIN` points that frontend at the
+stateless processing service, and `REAGE_ALLOWED_ORIGINS` permits the Pages
+origin. See `docs/SEO.md` for deployment and Search Console setup.
 
 ## v0.6.1 editing stability and request efficiency
 

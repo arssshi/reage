@@ -1,4 +1,5 @@
 import type { FontEntry } from './types'
+import { apiUrl } from './config'
 
 interface Recovery { page: number; kind: 'ocr' | 'region' | 'text'; payload: Record<string, unknown> }
 interface Workspace { id: string; name: string; source: Blob; recovery: Recovery[] }
@@ -12,10 +13,10 @@ const MAX_REQUEST = 4_000_000
 export async function cloudRequest(path: string, options?: RequestInit): Promise<Response> {
   const url = new URL(path, 'https://reage.invalid')
   path = url.pathname
-  if (path.startsWith('/ocr')) return fetch(`/api${path}`, options)
+  if (path.startsWith('/ocr')) return fetch(apiUrl(`/api${path}`), options)
   if (path === '/demo' || path === '/demo/scanned') {
     const scanned = path.endsWith('/scanned')
-    const response = await fetch(`/api/sample?scanned=${scanned}`)
+    const response = await fetch(apiUrl(`/api/sample?scanned=${scanned}`))
     if (!response.ok) return response
     const body = new FormData()
     body.append('file', new File([await response.blob()], scanned ? 'Scanned — Not Stuck.pdf' : 'Common Ground — Field Notes.pdf', { type: 'application/pdf' }))
@@ -55,7 +56,7 @@ export async function cloudRequest(path: string, options?: RequestInit): Promise
   if (size + 20_000 > MAX_REQUEST) throw new Error('This PDF and its fonts exceed the online workspace limit. Try a smaller document, or use the local app for larger files.')
   if (metadata.length > 500_000) throw new Error('This online workspace has too much recovery data. Export your PDF and reopen it to continue.')
   if (path.startsWith('/fonts/') && fonts.size >= 8) throw new Error('The online workspace supports eight added fonts. Export and close your document to start a fresh workspace.')
-  const response = await fetch('/api/process', { method: 'POST', body, signal: options?.signal })
+  const response = await fetch(apiUrl('/api/process'), { method: 'POST', body, signal: options?.signal })
   if (!response.ok) return response
   const mixes = response.headers.get('X-Reage-Font-Compositions')
   if (mixes) Object.assign(compositions, JSON.parse(mixes))

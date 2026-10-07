@@ -1,0 +1,12 @@
+{
+  "name": "Reage PDF Editor",
+  "short_name": "Reage",
+  "description": "A free open-source PDF editor for precise text changes, font recovery, OCR, and page organization.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fffaf5",
+  "theme_color": "#bd5139",
+  "icons": [
+    { "src": "brand/reage-app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

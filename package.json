@@ -7,12 +7,13 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:ui": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/generate-seo.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
     "test:benchmark": "playwright test e2e/benchmark.spec.ts",
     "test:startup": "node --test scripts/dev.test.mjs",
     "test:cache": "node --experimental-strip-types --test scripts/request-cache.test.mjs",
+    "test:seo": "node --test scripts/seo.test.mjs",
     "brand:export": "node scripts/export-brand.mjs"
   },
   "dependencies": {

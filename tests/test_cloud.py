@@ -140,6 +140,14 @@ def test_hosted_limits_invalid_requests_and_origins_are_actionable():
         assert operation(client, "/fonts", compositions={"mix:invalid": ["mix:recursive", "builtin:helv"]}).status_code == 422
 
 
+def test_github_pages_origin_can_call_the_stateless_api():
+    with TestClient(app) as client:
+        response = client.get("/api/health", headers={"Origin": "https://arssshi.github.io"})
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == "https://arssshi.github.io"
+        assert "Origin" in response.headers["vary"]
+
+
 def test_public_assets_do_not_need_a_document_or_a_shared_session():
     with TestClient(app) as client:
         for scanned in ("true", "false"):

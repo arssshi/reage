@@ -8,6 +8,7 @@ if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65535) {
 }
 
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH ?? '/',
   plugins: [react(), ocrAssets()],
   server: {
     proxy: {

@@ -3,7 +3,7 @@ import { ArrowDownToLine, ArrowRight, ArrowUpRight, Check, ChevronRight, CircleH
 import BrandLogo from './BrandLogo'
 import { APP_VERSION } from '../api'
 import type { WorkspaceTool } from '../types'
-import { GITHUB_URL, IS_HOSTED, MAX_UPLOAD_MB, PRIVACY_COPY } from '../config'
+import { apiUrl, assetUrl, BASE_URL, GITHUB_URL, IS_HOSTED, MAX_UPLOAD_MB, PRIVACY_COPY } from '../config'
 
 interface Props {
   busy: boolean
@@ -18,7 +18,7 @@ export default function Welcome({ busy, onOpen, onDemo, onHelp, onStartTool }: P
   return <div className="home-shell">
     <a className="skip-link" href="#workspace">Skip to workspace</a>
     <aside className="home-sidebar">
-      <a className="brand" href="/" aria-label="Reage home"><BrandLogo /></a>
+      <a className="brand" href={BASE_URL} aria-label="Reage home"><BrandLogo /></a>
       <span className="sidebar-caption">YOUR PDF WORKSPACE</span>
       <nav aria-label="Main navigation">
         <a href="#workspace" className={section === 'workspace' ? 'active' : ''} onClick={() => setSection('workspace')}><LayoutGrid size={19} /><span>Your workspace</span><span className="nav-dot" /></a>
@@ -29,7 +29,7 @@ export default function Welcome({ busy, onOpen, onDemo, onHelp, onStartTool }: P
     </aside>
 
     <div className="home-content">
-      <header className="home-topbar"><span className="home-breadcrumb">Workspace <ChevronRight size={14} /><strong>Overview</strong></span><a className="brand mobile-home-brand" href="/" aria-label="Reage home"><BrandLogo /></a><div><span className="privacy-pill"><LockKeyhole size={13} /> {IS_HOSTED ? 'No saved documents' : 'Private by design'}</span><a className="github-link" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Reage on GitHub"><Github size={17} /> GitHub <ArrowUpRight size={13} /></a><button className="icon-button" onClick={onHelp} aria-label="Help & shortcuts"><CircleHelp size={19} /></button></div></header>
+      <header className="home-topbar"><span className="home-breadcrumb">Workspace <ChevronRight size={14} /><strong>Overview</strong></span><a className="brand mobile-home-brand" href={BASE_URL} aria-label="Reage home"><BrandLogo /></a><div><span className="privacy-pill"><LockKeyhole size={13} /> {IS_HOSTED ? 'No saved documents' : 'Private by design'}</span><a className="github-link" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Reage on GitHub"><Github size={17} /> GitHub <ArrowUpRight size={13} /></a><button className="icon-button" onClick={onHelp} aria-label="Help & shortcuts"><CircleHelp size={19} /></button></div></header>
       <main id="workspace" className="home-main">
         <div className="home-intro"><div><span className="eyebrow">YOUR DOCUMENT. YOUR POSSIBILITIES.</span><h1>Your PDFs.<br /><em>Precisely edited.</em></h1><p>Edit, move, and style your text. Find the right font.<br />Make the final copy yours.</p></div><div className="intro-note"><span><Check size={14} /> No account or subscription</span><span><Fingerprint size={14} /> Original files preserved</span><span><Github size={14} /> Built in the open</span></div></div>
 
@@ -59,8 +59,8 @@ export default function Welcome({ busy, onOpen, onDemo, onHelp, onStartTool }: P
           <button className="home-tool-card" onClick={() => onStartTool('pages')} disabled={busy}><span className="tool-card-icon peach"><FileText size={23} /></span><ArrowUpRight className="tool-card-arrow" size={18} /><h3>Arrange the final copy</h3><p>Reorder, rotate, duplicate,<br />or export just the pages you need.</p><span className="tool-card-link">Organize & export <ArrowRight size={13} /></span></button>
         </div></section>
 
-        <div className="home-reassurance"><span className="reassurance-icon"><ShieldCheck size={25} strokeWidth={1.5} /></span><div><strong>Your work stays in your hands.</strong><p>{IS_HOSTED ? 'Temporary server processing. Original files preserved. Open source, always.' : 'Local processing. Original files preserved. Open source, always.'}</p></div><a href="/api/license" target="_blank" rel="noreferrer">Built to be open <ArrowUpRight size={15} /></a></div>
-        <footer className="home-footer"><span><img src="/brand/reage-mark.svg" alt="" /> A little more possibility.</span><div><a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={14} /> GitHub</a><a href="/api/brand-kit" download><ArrowDownToLine size={14} /> Brand assets</a><button onClick={onHelp}>Help & shortcuts</button><a href="/api/source" download><FileText size={14} /> Source</a></div></footer>
+        <div className="home-reassurance"><span className="reassurance-icon"><ShieldCheck size={25} strokeWidth={1.5} /></span><div><strong>Your work stays in your hands.</strong><p>{IS_HOSTED ? 'Temporary server processing. Original files preserved. Open source, always.' : 'Local processing. Original files preserved. Open source, always.'}</p></div><a href={apiUrl('/api/license')} target="_blank" rel="noreferrer">Built to be open <ArrowUpRight size={15} /></a></div>
+        <footer className="home-footer"><span><img src={assetUrl('/brand/reage-mark.svg')} alt="Reage mark" width="19" height="19" /> A little more possibility.</span><div><a href={GITHUB_URL} target="_blank" rel="noreferrer"><Github size={14} /> GitHub</a><a href={apiUrl('/api/brand-kit')} download><ArrowDownToLine size={14} /> Brand assets</a><button onClick={onHelp}>Help & shortcuts</button><a href={apiUrl('/api/source')} download><FileText size={14} /> Source</a></div></footer>
       </main>
     </div>
   </div>

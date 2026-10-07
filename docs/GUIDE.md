@@ -21,7 +21,7 @@ for architecture and [CAPABILITIES.md](../CAPABILITIES.md) for supported feature
 
 ## Online and local editions
 
-Use **https://reage0.vercel.app** to edit without installing anything. The online
+Use **https://arssshi.github.io/reage/** to edit without installing anything. The online
 workspace accepts PDFs up to **3 MB / 50 pages**. Each processing operation sends
 the source PDF, recovery instructions and any added fonts to the hosted Python
 service. The app discards request data after processing and does not maintain
@@ -389,8 +389,10 @@ its in-memory documents. Reopening an exported PDF starts a new editing session.
 
 ## Website and deployment
 
-The project website is [reage0.vercel.app](https://reage0.vercel.app). The checked-in
-`vercel.json` builds Vite and routes `/api/*` to `api/index.py`, the stateless
+The project website is [Reage on GitHub Pages](https://arssshi.github.io/reage/).
+The checked-in Pages workflow builds the pre-rendered SEO pages and frontend;
+the hosted API remains a separate Python service. The legacy `vercel.json`
+builds the frontend too and routes `/api/*` to `api/index.py`, the stateless
 FastAPI application in `server/cloud.py`. Python 3.12 and `requirements.txt`
 provide the MuPDF engine. No database, object storage, secret key, or login is needed.
 
@@ -416,6 +418,9 @@ REAGE_TEST_URL=https://reage0.vercel.app REAGE_TEST_HOSTED=1 npm run test:e2e
 For hosted-mode tests on localhost, omit `REAGE_TEST_URL` and set
 `REAGE_TEST_HOSTED=1`; Playwright starts the stateless API and frontend together.
 Never upload a private benchmark to a public test target.
+
+For GitHub Pages deployment, see [SEO.md](SEO.md). GitHub Pages is static, so
+the PDF API must remain on a Python-capable service and allow the Pages origin.
 
 ## Why PDF fonts are hard
 
@@ -528,6 +533,7 @@ render throughput. CPU-heavy work runs outside the API event loop.
 npm run test:startup
 npm run test:cache
 npm run build
+npm run test:seo
 npx playwright install chromium
 npm run test:e2e
 ```

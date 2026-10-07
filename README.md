@@ -7,7 +7,7 @@
 <p align="center">Edit the words. Keep the character. Online or on your own machine.</p>
 
 <p align="center">
-  <a href="https://reage0.vercel.app">Try Reage online</a> ·
+  <a href="https://arssshi.github.io/reage/">Try Reage online</a> ·
   <a href="#run-locally">Get started</a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
   <a href="CAPABILITIES.md">Capabilities</a> ·
@@ -78,13 +78,20 @@ secure redaction. See the [full capability matrix](CAPABILITIES.md).
 
 ## Try it online
 
-Open **[reage0.vercel.app](https://reage0.vercel.app)** → try a sample or choose
+Open **[Reage on GitHub Pages](https://arssshi.github.io/reage/)** → try a sample or choose
 a PDF → edit → **Export PDF**. No installation or account needed.
 
-The online workspace supports **3 MB PDFs, up to 50 pages**. Documents and added
-fonts travel to the server for each processing request; the app keeps no saved
-document store. Vercel also limits combined requests and exported results. For
-larger or sensitive documents, use the local edition below (30 MB / 300 pages).
+The public website is pre-rendered and served statically from GitHub Pages for
+fast, crawlable HTML. PDF processing remains a separate stateless API because
+GitHub Pages does not run Python services. The online workspace supports **3 MB
+PDFs, up to 50 pages**. Documents and added fonts travel to the processing API
+for each request; the app keeps no saved document store. For larger or sensitive
+documents, use the local edition below (30 MB / 300 pages).
+
+The public site includes pre-rendered feature pages for PDF editing, font
+recovery, OCR, page organization, the user guide, privacy, and press information.
+Each page has its own canonical URL, structured data, FAQ content, and internal
+links so people can discover the product before loading the editor bundle.
 
 ## Your PDFs stay yours
 
@@ -149,7 +156,7 @@ hot reload. Contributions, reproducible bug reports, and thoughtful ideas are we
 
 [Contributing](CONTRIBUTING.md) · [Architecture](IMPLEMENTATION.md) ·
 [Testing guide](docs/GUIDE.md#verification) · [Brand kit](public/brand/BRAND-GUIDE.md) ·
-[Third-party notices](NOTICE.md)
+[Third-party notices](NOTICE.md) · [SEO and publishing](docs/SEO.md)
 
 ## A special thank you to Omnirush 🧡
 

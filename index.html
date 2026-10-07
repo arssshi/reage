@@ -2,18 +2,126 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="manifest" href="%BASE_URL%site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#fffaf5" />
-    <meta name="description" content="Reage is an open-source, local-first PDF text editor. Change the words. Keep the character." />
-    <meta property="og:title" content="Reage — Your PDFs. Precisely edited." />
-    <meta property="og:description" content="Edit the page. Keep its character. An open-source PDF workspace with font recovery and local OCR." />
-    <meta property="og:image" content="/brand/reage-social-card.png" />
+    <meta name="description" content="Edit PDF text online with Reage, a free open-source PDF editor with font recovery, OCR for scans, page tools, and local-first privacy." />
+    <meta name="author" content="Sameer and Reage contributors" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href="https://arssshi.github.io/reage/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Reage" />
+    <meta property="og:url" content="https://arssshi.github.io/reage/" />
+    <meta property="og:title" content="Reage PDF Editor — Edit PDF Text Online" />
+    <meta property="og:description" content="A free, open-source PDF editor for precise text changes, font recovery, scanned documents, and page organization." />
+    <meta property="og:image" content="https://arssshi.github.io/reage/brand/reage-social-card.png" />
+    <meta property="og:image:alt" content="Reage open-source PDF editor — Your PDFs. Precisely edited." />
     <meta name="twitter:card" content="summary_large_image" />
-    <title>Reage — Your PDFs. Precisely edited.</title>
+    <meta name="twitter:title" content="Reage PDF Editor — Edit PDF Text Online" />
+    <meta name="twitter:description" content="Edit PDF text, recover fonts, work with scans, and organize pages in a free open-source workspace." />
+    <meta name="twitter:image" content="https://arssshi.github.io/reage/brand/reage-social-card.png" />
+    <title>Reage PDF Editor — Edit PDF Text Online, Recover Fonts & OCR</title>
+    <link rel="stylesheet" href="%BASE_URL%seo.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://arssshi.github.io/reage/#organization",
+            "name": "Reage",
+            "url": "https://arssshi.github.io/reage/",
+            "logo": "https://arssshi.github.io/reage/brand/reage-logo.svg",
+            "sameAs": ["https://github.com/arssshi/reage"]
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://arssshi.github.io/reage/#application",
+            "name": "Reage PDF Editor",
+            "url": "https://arssshi.github.io/reage/",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "isAccessibleForFree": true,
+            "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+            "publisher": {"@id": "https://arssshi.github.io/reage/#organization"},
+            "featureList": ["Edit PDF text", "Recover PDF fonts", "OCR scanned PDFs", "Organize PDF pages"]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://arssshi.github.io/reage/"}]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {"@type": "Question", "name": "Is Reage a free PDF editor?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Reage is free and open source under AGPL-3.0-or-later. You can use the hosted workspace for smaller documents or run the editor locally for larger and more private files."}},
+              {"@type": "Question", "name": "Can I edit text in a scanned PDF?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Reage can recognize scanned text with browser-based OCR or let you draw a replacement region when OCR misses a line. OCR typography is estimated and should be reviewed."}},
+              {"@type": "Question", "name": "Does Reage preserve the original PDF?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Reage keeps the source PDF immutable and creates a validated edited copy. Native text edits preserve supported surrounding artwork and untouched pages."}},
+              {"@type": "Question", "name": "Can Reage recover a missing PDF font?", "acceptedAnswer": {"@type": "Answer", "text": "Font Studio checks embedded glyphs, companion faces, installed fonts, bundled fonts, and open-font downloads. If the exact font is unavailable, Reage labels the substitute instead of hiding the change."}}
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="seo-shell">
+        <a class="seo-skip" href="#workspace">Skip to content</a>
+        <header class="seo-header">
+          <a class="seo-brand" href="%BASE_URL%" aria-label="Reage home"><img src="%BASE_URL%brand/reage-logo.svg" alt="Reage" width="135" height="40" /></a>
+          <nav aria-label="Primary navigation">
+            <a href="%BASE_URL%pdf-editor/">PDF editor</a>
+            <a href="%BASE_URL%pdf-font-recovery/">Font recovery</a>
+            <a href="%BASE_URL%ocr-pdf-editor/">OCR for scans</a>
+            <a href="%BASE_URL%guide/">Guide</a>
+          </nav>
+          <a class="seo-header-cta" href="#seo-open">Open a PDF <span aria-hidden="true">→</span></a>
+        </header>
+        <main id="workspace">
+          <section class="seo-hero" aria-labelledby="seo-title">
+            <div class="seo-hero-copy">
+              <p class="seo-eyebrow">OPEN SOURCE · LOCAL FIRST · BUILT FOR WORDS</p>
+              <h1 id="seo-title">Edit PDF text online without losing the document’s character.</h1>
+              <p class="seo-lede">Reage is a free PDF editor for precise text changes, font recovery, scanned documents, and page organization. Change the words, keep the details, and export a searchable copy.</p>
+              <div class="seo-actions"><a class="seo-button primary" id="seo-open" href="#workspace">Open a PDF <span aria-hidden="true">→</span></a><a class="seo-button secondary" href="%BASE_URL%pdf-editor/">See how it works</a></div>
+              <p class="seo-proof"><span>✓</span> No account <span>✓</span> Source PDF stays untouched <span>✓</span> AGPL open source</p>
+            </div>
+            <div class="seo-hero-media">
+              <picture><source srcset="%BASE_URL%brand/reage-social-card.webp" type="image/webp" /><img src="%BASE_URL%brand/reage-social-card.png" alt="Reage PDF editor workspace for editing text and recovering fonts" width="1200" height="630" fetchpriority="high" /></picture>
+            </div>
+          </section>
+
+          <section class="seo-section" id="features" aria-labelledby="feature-title">
+            <p class="seo-eyebrow">A PDF editor that respects the page</p>
+            <h2 id="feature-title">The useful tools are close to the document.</h2>
+            <div class="seo-grid three">
+              <a class="seo-card" href="%BASE_URL%edit-pdf-online/"><span class="seo-card-number">01</span><h3>Edit and style PDF text</h3><p>Select a text run, type naturally, apply real bold or italic faces, move it, resize it, and validate the result against the PDF engine.</p><span class="seo-link">Edit PDF text <span aria-hidden="true">→</span></span></a>
+              <a class="seo-card" href="%BASE_URL%pdf-font-recovery/"><span class="seo-card-number">02</span><h3>Recover the font you need</h3><p>Font Studio checks glyph coverage, embedded companions, local fonts, bundled faces, and open-font downloads before identifying a substitute.</p><span class="seo-link">Explore font recovery <span aria-hidden="true">→</span></span></a>
+              <a class="seo-card" href="%BASE_URL%ocr-pdf-editor/"><span class="seo-card-number">03</span><h3>Make scanned PDFs searchable</h3><p>Run browser OCR on image pages, review confidence and typography, or replace a missed visible region without flattening the document.</p><span class="seo-link">Work with scans <span aria-hidden="true">→</span></span></a>
+              <a class="seo-card" href="%BASE_URL%pdf-page-organizer/"><span class="seo-card-number">04</span><h3>Arrange the final copy</h3><p>Reorder, rotate, duplicate, remove, or extract pages. Add metadata, choose a filename, and optionally subset fonts before download.</p><span class="seo-link">Organize PDF pages <span aria-hidden="true">→</span></span></a>
+              <a class="seo-card" href="%BASE_URL%guide/"><span class="seo-card-number">05</span><h3>See what changed</h3><p>Compare the original, inspect font resolution, keep edits undoable, and see honest explanations when a PDF structure needs review.</p><span class="seo-link">Read the editing guide <span aria-hidden="true">→</span></span></a>
+              <a class="seo-card" href="%BASE_URL%about/"><span class="seo-card-number">06</span><h3>Use a calmer workspace</h3><p>Reage is document-first, responsive, and built around local processing, transparent limitations, and a source code you can inspect.</p><span class="seo-link">About Reage <span aria-hidden="true">→</span></span></a>
+            </div>
+          </section>
+
+          <section class="seo-band" aria-labelledby="privacy-title">
+            <div><p class="seo-eyebrow">A practical privacy choice</p><h2 id="privacy-title">Your original file is never overwritten.</h2></div>
+            <p>Use the hosted workspace for a temporary session, or run Reage on your own machine. The editor validates a new copy from an immutable source instead of quietly painting over your PDF.</p>
+          </section>
+
+          <section class="seo-section narrow" aria-labelledby="steps-title">
+            <p class="seo-eyebrow">A short path from fix to export</p><h2 id="steps-title">How to edit a PDF with Reage</h2>
+            <ol class="seo-steps"><li><strong>Open a document.</strong><span>Choose a PDF, try the native sample, or use the scanned sample to explore OCR.</span></li><li><strong>Select the words.</strong><span>Click a text run to type, or choose Add text for a new searchable object.</span></li><li><strong>Check the result.</strong><span>Use formatting, Font Studio, movement handles, Original comparison, and the fidelity report.</span></li><li><strong>Export a copy.</strong><span>Download the full document or arrange only the pages you need.</span></li></ol>
+          </section>
+
+          <section class="seo-section narrow" id="faq" aria-labelledby="faq-title"><p class="seo-eyebrow">Questions people ask before editing</p><h2 id="faq-title">Reage PDF editor FAQ</h2><div class="seo-faq"><details><summary>Is Reage a free PDF editor?</summary><p>Yes. Reage is free and open source under AGPL-3.0-or-later. Use the hosted workspace for smaller documents or run the editor locally for larger and more private files.</p></details><details><summary>Can I edit text in a scanned PDF?</summary><p>Yes. Reage can recognize scanned text with browser-based OCR or let you draw a replacement region when OCR misses a line. OCR typography is estimated and should be reviewed.</p></details><details><summary>Does Reage preserve the original PDF?</summary><p>Yes. Reage keeps the source PDF immutable and creates a validated edited copy. Native text edits preserve supported surrounding artwork and untouched pages.</p></details><details><summary>Can Reage recover a missing PDF font?</summary><p>Font Studio checks embedded glyphs, companion faces, installed fonts, bundled fonts, and open-font downloads. If the exact font is unavailable, Reage labels the substitute.</p></details></div></section>
+
+          <section class="seo-author" aria-labelledby="author-title"><div class="seo-author-avatar" aria-hidden="true">r.</div><div><p class="seo-eyebrow">The person behind the project</p><h2 id="author-title">Built in the open by Sameer and contributors.</h2><p>Sameer is the creator and maintainer of Reage, an open-source PDF editor shaped around careful document handling. The project focuses on the small, high-friction changes people actually need: fixing a line, finding a font, recovering a scan, and leaving the rest of the page alone.</p><a class="seo-link" href="%BASE_URL%about/">Read the project story <span aria-hidden="true">→</span></a></div></section>
+        </main>
+        <footer class="seo-footer"><span>© 2026 Reage contributors · AGPL-3.0-or-later</span><nav aria-label="Footer navigation"><a href="%BASE_URL%about/">About</a><a href="%BASE_URL%press/">Press kit</a><a href="%BASE_URL%privacy/">Privacy</a><a href="https://github.com/arssshi/reage">GitHub</a></nav></footer>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
