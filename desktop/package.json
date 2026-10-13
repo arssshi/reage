@@ -1,0 +1,68 @@
+{
+  "name": "reage-windows-desktop",
+  "version": "0.7.0",
+  "private": true,
+  "description": "Windows installer and portable desktop package for Reage PDF editor",
+  "license": "AGPL-3.0-or-later",
+  "main": "main.cjs",
+  "scripts": {
+    "package:windows": "electron-builder --win --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "org.reage.pdfeditor",
+    "productName": "Reage",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "asar": true,
+    "files": [
+      "main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/backend/reage-server.exe",
+        "to": "reage-server.exe"
+      },
+      {
+        "from": "resources/reage.ico",
+        "to": "reage.ico"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "resources/reage.ico"
+    },
+    "portable": {
+      "artifactName": "Reage-0.7.0-Windows-Portable.exe"
+    },
+    "nsis": {
+      "artifactName": "Reage-0.7.0-Windows-Setup.exe",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Reage",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

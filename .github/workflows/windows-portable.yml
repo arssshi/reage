@@ -1,0 +1,135 @@
+name: Windows desktop release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-desktop-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish Windows x64 installer and portable app
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Sync desktop package version
+        id: version
+        shell: pwsh
+        run: |
+          $version = node -e "const fs=require('node:fs'); const root=JSON.parse(fs.readFileSync('package.json','utf8')); const file='desktop/package.json'; const desktop=JSON.parse(fs.readFileSync(file,'utf8')); desktop.version=root.version; desktop.build.portable.artifactName='Reage-'+root.version+'-Windows-Portable.exe'; desktop.build.nsis.artifactName='Reage-'+root.version+'-Windows-Setup.exe'; fs.writeFileSync(file,JSON.stringify(desktop,null,2)+'\n'); process.stdout.write(root.version)"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "APP_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build local frontend
+        run: npm run build
+        env:
+          VITE_REAGE_MODE: local
+          VITE_SITE_URL: https://github.com/CHEYCKIT/reage
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt pyinstaller==6.22.3
+
+      - name: Freeze the local PDF service
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force desktop/build/backend, desktop/build/pyinstaller, desktop/resources | Out-Null
+          python -c "from PIL import Image; Image.open('public/brand/reage-app-icon-512.png').save('desktop/resources/reage.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
+          python -m PyInstaller --noconfirm --clean --onefile --name reage-server --distpath desktop/build/backend --workpath desktop/build/pyinstaller --specpath desktop/build --paths . --add-data "$((Resolve-Path 'dist').Path);dist" --add-data "$((Resolve-Path 'package.json').Path);." --add-data "$((Resolve-Path 'LICENSE').Path);." --add-data "$((Resolve-Path 'NOTICE.md').Path);." --add-data "$((Resolve-Path 'README.md').Path);." --add-data "$((Resolve-Path 'IMPLEMENTATION.md').Path);." --add-data "$((Resolve-Path 'CAPABILITIES.md').Path);." --add-data "$((Resolve-Path 'CONTRIBUTING.md').Path);." --add-data "$((Resolve-Path 'public').Path);public" --add-data "$((Resolve-Path 'server').Path);server" --add-data "$((Resolve-Path 'src').Path);src" --add-data "$((Resolve-Path 'scripts').Path);scripts" --add-data "$((Resolve-Path 'docs').Path);docs" --add-data "$((Resolve-Path 'tests').Path);tests" --add-data "$((Resolve-Path 'e2e').Path);e2e" --add-data "$((Resolve-Path 'api').Path);api" --collect-all pymupdf --collect-all pymupdf_fonts --collect-all fontTools --collect-all PIL --collect-all uvicorn --collect-all fastapi --collect-all starlette --collect-all multipart desktop/server_launcher.py
+
+      - name: Smoke-test the frozen PDF service
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'desktop/build/backend/reage-server.exe').Path
+          $process = Start-Process -FilePath $exe -ArgumentList @('--port', '18765', '--no-browser') -PassThru -WindowStyle Hidden
+          try {
+            $health = $null
+            for ($attempt = 0; $attempt -lt 90; $attempt++) {
+              if ($process.HasExited) { throw "Bundled PDF service exited with code $($process.ExitCode)." }
+              try {
+                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18765/api/health' -TimeoutSec 2
+                if ($health.status -eq 'ok') { break }
+              } catch { }
+              Start-Sleep -Milliseconds 500
+            }
+            if ($null -eq $health -or $health.status -ne 'ok' -or $health.service -ne 'reage' -or $health.version -ne $env:APP_VERSION) {
+              throw 'The frozen PDF service failed its health/version check.'
+            }
+            $page = Invoke-WebRequest -Uri 'http://127.0.0.1:18765/' -TimeoutSec 10 -UseBasicParsing
+            if ($page.StatusCode -ne 200 -or $page.Content -notmatch 'id="root"') {
+              throw 'The frozen PDF service did not serve the built Reage interface.'
+            }
+          } finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              Wait-Process -Id $process.Id -Timeout 10 -ErrorAction SilentlyContinue
+            }
+          }
+
+      - name: Install desktop packaging dependencies
+        working-directory: desktop
+        run: npm install --no-audit --no-fund --package-lock=false
+
+      - name: Package Windows installer and portable executable
+        working-directory: desktop
+        run: npm run package:windows
+
+      - name: Verify artifact and write checksum
+        shell: pwsh
+        run: |
+          $artifacts = @(
+            "desktop/release/Reage-$env:APP_VERSION-Windows-Setup.exe",
+            "desktop/release/Reage-$env:APP_VERSION-Windows-Portable.exe"
+          )
+          foreach ($artifact in $artifacts) {
+            if (-not (Test-Path $artifact)) { throw "Expected Windows release artifact not found: $artifact" }
+            $hash = (Get-FileHash $artifact -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $(Split-Path $artifact -Leaf)" | Set-Content "$artifact.sha256" -Encoding ascii
+          }
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: windows-v${{ steps.version.outputs.version }}
+          name: Reage v${{ steps.version.outputs.version }} — Windows Installer + Portable
+          target_commitish: ${{ github.sha }}
+          body: |
+            **Windows x64 desktop release of Reage.**
+
+            - `Reage-${{ steps.version.outputs.version }}-Windows-Setup.exe`: standard per-user Windows installer with Start menu and optional desktop shortcuts, plus a selectable install directory. No administrator rights or separate Python installation are required.
+            - `Reage-${{ steps.version.outputs.version }}-Windows-Portable.exe`: single-file portable build without an installation step.
+            - Both packages include the local PDF-processing service; documents are handled on-device and editing sessions are temporary.
+            - First-use OCR language models and optional Google Fonts downloads require internet access.
+            - SHA-256 checksum files are included for both executable downloads.
+          files: |
+            desktop/release/Reage-${{ steps.version.outputs.version }}-Windows-Setup.exe
+            desktop/release/Reage-${{ steps.version.outputs.version }}-Windows-Setup.exe.sha256
+            desktop/release/Reage-${{ steps.version.outputs.version }}-Windows-Portable.exe
+            desktop/release/Reage-${{ steps.version.outputs.version }}-Windows-Portable.exe.sha256
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          make_latest: false
